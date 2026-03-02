@@ -1,0 +1,42 @@
+model Context {
+  id        String   @id @default(cuid())
+  name      String
+  description String 
+  
+  projects Project[]
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  contextGroupId String?
+  contextGroup   ContextGroup? @relation(fields: [contextGroupId], references: [id], onDelete: SetNull)
+  contextTags ContextTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContextGroup {
+  id        String   @id @default(cuid())
+  name      String
+  description String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  contexts Context[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContextTag {
+  id        String   @id @default(cuid())
+  name      String
+  description String
+
+  contextId String
+  context   Context   @relation(fields: [contextId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

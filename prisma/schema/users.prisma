@@ -1,0 +1,13 @@
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+
+  contexts Context[]
+  contextGroups ContextGroup[]
+  projects Project[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+

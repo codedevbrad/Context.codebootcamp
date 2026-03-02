@@ -1,0 +1,309 @@
+"use server";
+
+import { auth } from "@/../auth";
+import { prisma } from "@/lib/db";
+
+export type ActionResult<T = void> =
+  | { success: true; data?: T }
+  | { success: false; error: string };
+
+export type ContextGroupListItem = {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ContextListItem = {
+  id: string;
+  name: string;
+  description: string;
+  contextGroupId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+async function getAuthUserId() {
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+
+  if (!userId) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+
+  return user?.id ?? null;
+}
+
+export async function getUserContextGroups(): Promise<ContextGroupListItem[]> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return [];
+  }
+
+  return prisma.contextGroup.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+}
+
+export async function getContextGroupById(groupId: string) {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return null;
+  }
+
+  return prisma.contextGroup.findFirst({
+    where: {
+      id: groupId,
+      userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      createdAt: true,
+      updatedAt: true,
+      contexts: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          contextGroupId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: "desc" },
+      },
+    },
+  });
+}
+
+export async function getContextById(contextId: string) {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return null;
+  }
+
+  return prisma.context.findFirst({
+    where: {
+      id: contextId,
+      userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      contextGroupId: true,
+      createdAt: true,
+      updatedAt: true,
+      contextGroup: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+}
+
+export async function createContextGroupAction(
+  name: string,
+  description: string
+): Promise<ActionResult<ContextGroupListItem>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+
+  if (!trimmedName) {
+    return { success: false, error: "Group name is required" };
+  }
+
+  if (!trimmedDescription) {
+    return { success: false, error: "Group description is required" };
+  }
+
+  try {
+    const group = await prisma.contextGroup.create({
+      data: {
+        name: trimmedName,
+        description: trimmedDescription,
+        userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return { success: true, data: group };
+  } catch (error) {
+    console.error("Error creating context group:", error);
+    return { success: false, error: "Failed to create context group" };
+  }
+}
+
+export async function updateContextGroupAction(
+  groupId: string,
+  name: string,
+  description: string
+): Promise<ActionResult<ContextGroupListItem>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+
+  if (!trimmedName) {
+    return { success: false, error: "Group name is required" };
+  }
+
+  if (!trimmedDescription) {
+    return { success: false, error: "Group description is required" };
+  }
+
+  try {
+    const existing = await prisma.contextGroup.findFirst({
+      where: {
+        id: groupId,
+        userId,
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Context group not found" };
+    }
+
+    const group = await prisma.contextGroup.update({
+      where: { id: groupId },
+      data: {
+        name: trimmedName,
+        description: trimmedDescription,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return { success: true, data: group };
+  } catch (error) {
+    console.error("Error updating context group:", error);
+    return { success: false, error: "Failed to update context group" };
+  }
+}
+
+export async function deleteContextGroupAction(
+  groupId: string
+): Promise<ActionResult<{ id: string }>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  try {
+    const existing = await prisma.contextGroup.findFirst({
+      where: {
+        id: groupId,
+        userId,
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Context group not found" };
+    }
+
+    await prisma.contextGroup.delete({
+      where: { id: groupId },
+    });
+
+    return { success: true, data: { id: groupId } };
+  } catch (error) {
+    console.error("Error deleting context group:", error);
+    return { success: false, error: "Failed to delete context group" };
+  }
+}
+
+export async function createContextInGroupAction(
+  groupId: string,
+  name: string,
+  description: string
+): Promise<ActionResult<ContextListItem>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+
+  if (!trimmedName) {
+    return { success: false, error: "Context name is required" };
+  }
+
+  if (!trimmedDescription) {
+    return { success: false, error: "Context description is required" };
+  }
+
+  try {
+    const group = await prisma.contextGroup.findFirst({
+      where: {
+        id: groupId,
+        userId,
+      },
+      select: { id: true },
+    });
+
+    if (!group) {
+      return { success: false, error: "Context group not found" };
+    }
+
+    const context = await prisma.context.create({
+      data: {
+        name: trimmedName,
+        description: trimmedDescription,
+        userId,
+        contextGroupId: groupId,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        contextGroupId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return { success: true, data: context };
+  } catch (error) {
+    console.error("Error creating context in group:", error);
+    return { success: false, error: "Failed to create context" };
+  }
+}
