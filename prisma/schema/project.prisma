@@ -8,6 +8,38 @@ model Project {
     dbmodel Json
     gantttasks Json
 
+    thoughts ProjectThought[]
+    writings ProjectWriting[]
+
+    userId String
+    user User @relation(fields: [userId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model ProjectWriting {
+    id String @id @default(cuid())
+    title String
+    content Json
+    stamped DateTime @default(now())
+    
+    projectId String
+    project Project @relation(fields: [projectId], references: [id])
+    userId String
+    user User @relation(fields: [userId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model ProjectThought {
+    id String @id @default(cuid())
+
+    title String
+    content Json
+    stamped DateTime @default(now())
+    
+    projectId String
+    project Project @relation(fields: [projectId], references: [id])
     userId String
     user User @relation(fields: [userId], references: [id])
     createdAt DateTime @default(now())

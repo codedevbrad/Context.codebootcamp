@@ -1,17 +1,24 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getProjectById } from "@/domains/projects/project/db";
 import ProjectSubnav from "@/app/(project)/my/project/[projectid]/_components/project-subnav";
 import ReactFlowComponent from "@/domains/projects/erm/_components/reactflow";
+import PrismaView from "@/domains/projects/erm/_components/prismaview";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectErmPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectid: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const { projectid } = await params;
+  const { view } = await searchParams;
   const project = await getProjectById(projectid);
+  const activeView = view === "model" ? "model" : "flow";
 
   if (!project) {
     notFound();
@@ -31,7 +38,36 @@ export default async function ProjectErmPage({
         <p className="mb-3 text-sm text-muted-foreground">
           Build your ERM board by creating models and adding rows/columns.
         </p>
-        <ReactFlowComponent projectId={project.id} initialDbModel={project.dbmodel} />
+        <div className="mb-3 flex items-center gap-2">
+          <Link
+            href={`/my/project/${project.id}/erm?view=flow`}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm transition-colors",
+              activeView === "flow"
+                ? "bg-primary text-primary-foreground"
+                : "border text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            React Flow View
+          </Link>
+          <Link
+            href={`/my/project/${project.id}/erm?view=model`}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm transition-colors",
+              activeView === "model"
+                ? "bg-primary text-primary-foreground"
+                : "border text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            Model View
+          </Link>
+        </div>
+
+        {activeView === "model" ? (
+          <PrismaView initialDbModel={project.dbmodel} />
+        ) : (
+          <ReactFlowComponent projectId={project.id} initialDbModel={project.dbmodel} />
+        )}
       </section>
     </div>
   );

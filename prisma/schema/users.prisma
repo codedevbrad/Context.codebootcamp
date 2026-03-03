@@ -6,8 +6,9 @@ model User {
   contexts Context[]
   contextGroups ContextGroup[]
   projects Project[]
+  projectThoughts ProjectThought[]
+  projectWritings ProjectWriting[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-

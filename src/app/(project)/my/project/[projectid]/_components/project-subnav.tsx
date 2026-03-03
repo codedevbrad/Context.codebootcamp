@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-type Section = "gantt" | "tasks" | "erm";
+type Section = "overview" | "files" | "tasks" | "erm";
 
 type ProjectSubnavProps = {
   projectId: string;
@@ -10,6 +10,7 @@ type ProjectSubnavProps = {
 
 const sections: Array<{ id: Section; label: string; href: (projectId: string) => string }> = [
   { id: "overview", label: "overview", href: (projectId) => `/my/project/${projectId}` },
+  { id: "files", label: "Files", href: (projectId) => `/my/project/${projectId}/files` },
   { id: "tasks", label: "Tasks", href: (projectId) => `/my/project/${projectId}/tasks` },
   { id: "erm", label: "ERM", href: (projectId) => `/my/project/${projectId}/erm` },
 ];

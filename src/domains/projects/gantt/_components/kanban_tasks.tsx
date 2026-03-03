@@ -8,7 +8,7 @@ import {
   KanbanProvider,
 } from "@/components/kibo-ui/kanban";
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -94,17 +94,17 @@ function createTaskId() {
 }
 
 export default function KanbanTasks({ projectId, initialTasks }: KanbanTasksProps) {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const [tasks, setTasks] = useState<Task[]>(() => normalizeTasks(initialTasks));
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const persistTasks = (nextTasks: Task[]) => {
     setTasks(nextTasks);
@@ -227,8 +227,10 @@ export default function KanbanTasks({ projectId, initialTasks }: KanbanTasksProp
                   <KanbanCard column={column.id} id={task.id} key={task.id} name={task.name}>
                     <div className="group flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="m-0 truncate font-medium text-sm">{task.name}</p>
-                        <p className="m-0 truncate text-xs text-muted-foreground">
+                        <p className="m-0 text-sm font-medium wrap-anywhere">
+                          {task.name}
+                        </p>
+                        <p className="m-0 text-xs text-muted-foreground wrap-anywhere">
                           {task.description}
                         </p>
                       </div>

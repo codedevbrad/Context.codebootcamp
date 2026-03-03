@@ -23,20 +23,11 @@ export default async function ProjectPage({
         <p className="text-muted-foreground">{project.description}</p>
       </div>
 
-      <ProjectSubnav projectId={project.id} current="gantt" />
+      <ProjectSubnav projectId={project.id} current="overview" />
 
       <section className="rounded-md border p-4">
         <h2 className="text-lg font-medium">Details</h2>
-        <dl className="mt-3 space-y-2 text-sm">
-          <div>
-            <dt className="text-muted-foreground">Model nodes</dt>
-            <dd>{Array.isArray(project.dbmodel) ? project.dbmodel.length : 0}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Gantt tasks</dt>
-            <dd>{Array.isArray(project.gantttasks) ? project.gantttasks.length : 0}</dd>
-          </div>
-        </dl>
+      
       </section> 
     </div>
   );
