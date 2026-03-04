@@ -30,7 +30,7 @@ export function Profile() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="gap-2 px-2">
+        <Button variant="ghost" className="gap-2 px-4 bg-gray-100">
           <Avatar size="sm">
             <AvatarFallback>
               {getInitials(user?.username ?? "U")}

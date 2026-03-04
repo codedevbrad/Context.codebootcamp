@@ -14,6 +14,7 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",
+    "db:reset:regen": "prisma migrate reset --force && prisma migrate dev",
     "db:create": "psql -h localhost -p 5433 -U postgres -c \"CREATE DATABASE foodapp;\"",
     "db:drop": "psql -h localhost -p 5433 -U postgres -c \"DROP DATABASE foodapp;\"",
     "predeploy": "npm run rm:node_modules && npm install && npm run fullLint"

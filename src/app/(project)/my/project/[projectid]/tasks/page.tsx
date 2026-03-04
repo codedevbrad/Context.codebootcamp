@@ -29,9 +29,13 @@ export default async function ProjectTasksPage({
       <section className="rounded-md border p-4">
         <h2 className="text-lg font-medium">Tasks</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Create, drag, and delete tasks. Changes are saved to this project.
+          Manage domains and gantt tasks. Each domain has its own board.
         </p>
-        <KanbanTasks projectId={project.id} initialTasks={project.gantttasks} />
+        <KanbanTasks
+          projectId={project.id}
+          initialDomains={project.projectGantdomains}
+          initialCategories={project.categories}
+        />
       </section>
     </div>
   );

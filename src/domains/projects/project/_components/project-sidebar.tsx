@@ -5,6 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/custom/confirm-modal";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +23,8 @@ import {
 } from "@/components/ui/popover";
 import { useProjects } from "@/domains/projects/project/_swr/useProjects";
 import type { ProjectListItem } from "@/domains/projects/project/db";
+import { useProjectWritings } from "@/domains/projects/writing/_swr/useProjectWritings";
+import type { ProjectWritingListItem } from "@/domains/projects/writing/db";
 
 type ProjectSidebarProps = {
   initialProjects: ProjectListItem[];
@@ -27,8 +35,69 @@ type SidebarProjectItem = Omit<ProjectListItem, "createdAt" | "updatedAt"> & {
   updatedAt: Date | string;
 };
 
+type SidebarWritingItem = Omit<ProjectWritingListItem, "createdAt" | "updatedAt" | "stamped"> & {
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  stamped: Date | string;
+};
+
 function toTimestamp(value: Date | string) {
   return new Date(value).getTime();
+}
+
+type ProjectFilesAccordionProps = {
+  projectId: string;
+  pathname: string;
+};
+
+function ProjectFilesAccordion({ projectId, pathname }: ProjectFilesAccordionProps) {
+  const { writings, isLoading } = useProjectWritings(projectId);
+
+  const sortedWritings = useMemo(
+    () =>
+      [...(writings as SidebarWritingItem[])].sort(
+        (a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)
+      ),
+    [writings]
+  );
+
+  return (
+    <Accordion type="single" collapsible className="mt-2">
+      <AccordionItem value={`files-${projectId}`} className="border-none">
+        <AccordionTrigger className="rounded px-2 py-1 text-xs text-muted-foreground hover:no-underline cursor-pointer hover:bg-gray-200">
+          <span>Files [{sortedWritings.length}]</span>
+        </AccordionTrigger>
+        <AccordionContent className="pb-0">
+          {isLoading ? (
+            <p className="px-2 pb-2 text-xs text-muted-foreground">Loading files...</p>
+          ) : sortedWritings.length === 0 ? (
+            <p className="px-2 pb-2 text-xs text-muted-foreground">No files yet.</p>
+          ) : (
+            <ul className="space-y-1 px-2 pb-2">
+              {sortedWritings.map((writing) => {
+                const fileHref = `/my/project/${projectId}/files/${writing.id}`;
+                const isFileActive = pathname === fileHref;
+
+                return (
+                  <li key={writing.id}>
+                    <Link
+                      href={fileHref}
+                      className={`block truncate rounded px-2 py-1 text-xs transition-colors ${
+                        isFileActive ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
+                      }`}
+                      title={writing.title}
+                    >
+                      {writing.title}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
 }
 
 export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
@@ -211,7 +280,7 @@ export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
           ) : (
             sortedProjects.map((project) => {
               const href = `/my/project/${project.id}`;
-              const isActive = pathname === href;
+              const isActive = pathname === href || pathname.startsWith(`${href}/`);
               const isEditingThis = editingId === project.id;
 
               return (
@@ -310,6 +379,7 @@ export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
                       </Button>
                     </div>
                   </div>
+                  <ProjectFilesAccordion projectId={project.id} pathname={pathname} />
                 </div>
               );
             })

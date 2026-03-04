@@ -6,13 +6,60 @@ model Project {
     contexts Context[]
 
     dbmodel Json
-    gantttasks Json
+    gantttasks GanttTasks[]
 
     thoughts ProjectThought[]
     writings ProjectWriting[]
+    projectGantdomains ProjectGantdomains[]
 
     userId String
     user User @relation(fields: [userId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model ProjectGantdomains {
+    id String @id @default(cuid())
+    name String
+    description String
+
+    tasks GanttTasks[]
+    projectId String
+    project Project @relation(fields: [projectId], references: [id])
+
+    userId String
+    user User @relation(fields: [userId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model GanttTasks {
+    id String @id @default(cuid())
+    name String
+    description String
+    pageData Json
+    categoryId String
+
+    projectGantdomains ProjectGantdomains @relation(fields: [projectGantdomainsId], references: [id])
+    projectGantdomainsId String
+
+    projectId String
+    project Project @relation(fields: [projectId], references: [id])
+
+    category Category @relation(fields: [categoryId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Category {
+    id String @id @default(cuid())
+    name String
+
+    userId String
+    user User @relation(fields: [userId], references: [id])
+
+    gantttasks GanttTasks[]
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }

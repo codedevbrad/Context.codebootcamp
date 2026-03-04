@@ -183,10 +183,11 @@ export default function TipTapEditor({
   };
 
   return (
-    <div className="relative flex flex-col w-full h-screen ">
-
-      { !readOnly &&
-        <div className="absolute left-1/2 top-6 z-10 -translate-x-1/2 bg-white/80 backdrop-blur-md border border-border shadow-md rounded-full px-3 py-2 flex flex-wrap items-center gap-1 transition-all hover:shadow-lg">
+    <div className="flex flex-col w-full h-screen">
+      {!readOnly && (
+        <div className="w-full px-6 sm:px-10 pt-4 pb-2">
+          <div className="mx-auto max-w-4xl overflow-x-auto">
+            <div className="w-max min-w-full bg-white/80 backdrop-blur-md border border-border shadow-md rounded-full px-3 py-2 flex flex-nowrap items-center gap-1 transition-all hover:shadow-lg">
 
         {/* Headings */}
         <HeadingDropdownMenu
@@ -280,12 +281,13 @@ export default function TipTapEditor({
             icon={<Redo />}
           />
         </div>
+            </div>
+          </div>
         </div>
-      }      
-    
+      )}
 
       {/* Editor */}
-      <div className="w-full flex-1 px-6 sm:px-10 py-5 ">
+      <div className="w-full flex-1 px-6 sm:px-10 py-3">
         {showSaveStatus ? (
           <div className="mb-2 flex justify-end">
             <span className="text-xs text-muted-foreground">{saveMessage}</span>
