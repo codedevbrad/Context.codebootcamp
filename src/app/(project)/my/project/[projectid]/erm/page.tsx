@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProjectById } from "@/domains/projects/project/db";
-import ProjectSubnav from "@/app/(project)/my/project/[projectid]/_components/project-subnav";
 import ReactFlowComponent from "@/domains/projects/erm/_components/reactflow";
 import PrismaView from "@/domains/projects/erm/_components/prismaview";
 import { cn } from "@/lib/utils";
@@ -30,8 +29,6 @@ export default async function ProjectErmPage({
         <h1 className="text-2xl font-semibold">{project.name}</h1>
         <p className="text-muted-foreground">{project.description}</p>
       </div>
-
-      <ProjectSubnav projectId={project.id} current="erm" />
 
       <section className="rounded-md border p-4">
         <h2 className="text-lg font-medium">ERM</h2>

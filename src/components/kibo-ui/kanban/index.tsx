@@ -25,6 +25,8 @@ import {
   type HTMLAttributes,
   type ReactNode,
   useContext,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -41,6 +43,7 @@ type KanbanItemProps = {
   id: string;
   name: string;
   column: string;
+  position?: number;
 } & Record<string, unknown>;
 
 type KanbanColumnProps = {
@@ -158,7 +161,9 @@ export const KanbanCards = <T extends KanbanItemProps = KanbanItemProps>({
   ...props
 }: KanbanCardsProps<T>) => {
   const { data } = useContext(KanbanContext) as KanbanContextProps<T>;
-  const filteredData = data.filter((item) => item.column === props.id);
+  const filteredData = data
+    .filter((item) => item.column === props.id)
+    .sort((a, b) => (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER));
   const items = filteredData.map((item) => item.id);
 
   return (
@@ -191,6 +196,7 @@ export type KanbanProviderProps<
   columns: C[];
   data: T[];
   onDataChange?: (data: T[]) => void;
+  onDataSave?: (data: T[]) => Promise<void> | void;
   onDragStart?: (event: DragStartEvent) => void;
   onDragEnd?: (event: DragEndEvent) => void;
   onDragOver?: (event: DragOverEvent) => void;
@@ -208,9 +214,22 @@ export const KanbanProvider = <
   columns,
   data,
   onDataChange,
+  onDataSave,
   ...props
 }: KanbanProviderProps<T, C>) => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragStartStateRef = useRef<{ id: string; column: string; index: number } | null>(null);
+
+  useEffect(
+    () => () => {
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -228,9 +247,18 @@ export const KanbanProvider = <
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const card = data.find((item) => item.id === event.active.id);
+    const activeId = event.active.id as string;
+    const activeIndex = data.findIndex((item) => item.id === activeId);
+    const card = activeIndex === -1 ? undefined : data[activeIndex];
     if (card) {
-      setActiveCardId(event.active.id as string);
+      setActiveCardId(activeId);
+      dragStartStateRef.current = {
+        id: activeId,
+        column: card.column,
+        index: activeIndex,
+      };
+    } else {
+      dragStartStateRef.current = null;
     }
     onDragStart?.(event);
   };
@@ -276,18 +304,99 @@ export const KanbanProvider = <
 
     const { active, over } = event;
 
-    if (!over || active.id === over.id) {
+    if (!over) {
       return;
     }
 
     let newData = [...data];
+    let hasChanges = false;
 
     const oldIndex = newData.findIndex((item) => item.id === active.id);
-    const newIndex = newData.findIndex((item) => item.id === over.id);
+    if (oldIndex === -1) {
+      return;
+    }
 
-    newData = arrayMove(newData, oldIndex, newIndex);
+    const newIndex = newData.findIndex((item) => item.id === over.id);
+    const overItem = newData[newIndex];
+    const overColumn =
+      overItem?.column ||
+      columns.find((column) => column.id === over.id)?.id ||
+      newData[oldIndex]?.column;
+
+    if (overColumn && newData[oldIndex].column !== overColumn) {
+      newData[oldIndex].column = overColumn as T["column"];
+      hasChanges = true;
+    }
+
+    if (newIndex !== -1 && oldIndex !== newIndex) {
+      newData = arrayMove(newData, oldIndex, newIndex);
+      hasChanges = true;
+    }
+
+    if (!hasChanges) {
+      const dragStartState = dragStartStateRef.current;
+      const activeId = active.id as string;
+      const currentIndex = newData.findIndex((item) => item.id === activeId);
+      const currentItem = currentIndex === -1 ? undefined : newData[currentIndex];
+      const changedSinceDragStart =
+        dragStartState?.id === activeId &&
+        currentItem &&
+        (currentItem.column !== dragStartState.column || currentIndex !== dragStartState.index);
+
+      if (changedSinceDragStart) {
+        onDataChange?.(newData);
+
+        if (!onDataSave) {
+          dragStartStateRef.current = null;
+          return;
+        }
+
+        setSaveStatus("saving");
+        Promise.resolve(onDataSave(newData))
+          .then(() => {
+            setSaveStatus("saved");
+            if (saveStatusTimeoutRef.current) {
+              clearTimeout(saveStatusTimeoutRef.current);
+            }
+            saveStatusTimeoutRef.current = setTimeout(() => {
+              setSaveStatus("idle");
+            }, 1500);
+          })
+          .catch(() => {
+            setSaveStatus("error");
+          })
+          .finally(() => {
+            dragStartStateRef.current = null;
+          });
+      } else {
+        dragStartStateRef.current = null;
+      }
+      return;
+    }
 
     onDataChange?.(newData);
+
+    if (!onDataSave) {
+      return;
+    }
+
+    setSaveStatus("saving");
+    Promise.resolve(onDataSave(newData))
+      .then(() => {
+        setSaveStatus("saved");
+        if (saveStatusTimeoutRef.current) {
+          clearTimeout(saveStatusTimeoutRef.current);
+        }
+        saveStatusTimeoutRef.current = setTimeout(() => {
+          setSaveStatus("idle");
+        }, 1500);
+      })
+      .catch(() => {
+        setSaveStatus("error");
+      })
+      .finally(() => {
+        dragStartStateRef.current = null;
+      });
   };
 
   const announcements: Announcements = {
@@ -328,11 +437,20 @@ export const KanbanProvider = <
       >
         <div
           className={cn(
-            "grid size-full auto-cols-fr grid-flow-col gap-4",
+            "relative size-full",
             className
           )}
         >
-          {columns.map((column) => children(column))}
+          <div className="grid size-full auto-cols-fr grid-flow-col gap-4">
+            {columns.map((column) => children(column))}
+          </div>
+          { saveStatus !== "idle" && (
+            <div className="pointer-events-none absolute right-2 top-[-20px] rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
+              {saveStatus === "saving" && "Saving..."}
+              {saveStatus === "saved" && "Saved"}
+              {saveStatus === "error" && "Save failed"}
+            </div>
+          )}
         </div>
         {typeof window !== "undefined" &&
           createPortal(

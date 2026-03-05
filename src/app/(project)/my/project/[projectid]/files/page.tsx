@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProjectById } from "@/domains/projects/project/db";
 import { getProjectWritings } from "@/domains/projects/writing/db";
-import ProjectSubnav from "@/app/(project)/my/project/[projectid]/_components/project-subnav";
 import { ProjectFilesList } from "@/app/(project)/my/project/[projectid]/files/_components/project-files-list";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +28,6 @@ export default async function ProjectFilesPage({
         <p> { project.description } </p>
       </div>
 
-      <ProjectSubnav projectId={project.id} current="files" />
       <ProjectFilesList projectId={project.id} initialWritings={writings} />
     </div>
   );

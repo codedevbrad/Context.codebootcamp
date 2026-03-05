@@ -26,6 +26,7 @@ import {
   deleteGanttTaskAction,
   deleteProjectGanttDomainAction,
   type CategoryOption,
+  type GanttColumnType,
   type GanttTaskItem,
   type ProjectGanttDomainItem,
   updateGanttTaskAction,
@@ -58,6 +59,7 @@ type Task = {
   description: string;
   column: ColumnId;
   pageData: unknown;
+  position: number;
   categoryId: string;
   categoryName: string;
   createdAt: Date | string;
@@ -95,13 +97,38 @@ function getColumnFromPageData(value: unknown): ColumnId {
   return maybeColumn as ColumnId;
 }
 
+function columnIdToGanttColumnType(column: ColumnId): GanttColumnType {
+  switch (column) {
+    case "planned":
+      return "PLANNED";
+    case "in_progress":
+      return "IN_PROGRESS";
+    case "done":
+      return "DONE";
+  }
+}
+
+function ganttColumnTypeToColumnId(columnType: GanttColumnType): ColumnId {
+  switch (columnType) {
+    case "PLANNED":
+      return "planned";
+    case "IN_PROGRESS":
+      return "in_progress";
+    case "DONE":
+      return "done";
+  }
+}
+
 function normalizeTask(task: GanttTaskItem): Task {
   return {
     id: task.id,
     name: task.name,
     description: task.description,
-    column: getColumnFromPageData(task.pageData),
+    column: task.ganttcolumnType
+      ? ganttColumnTypeToColumnId(task.ganttcolumnType)
+      : getColumnFromPageData(task.pageData),
     pageData: task.pageData,
+    position: task.position,
     categoryId: task.categoryId,
     categoryName: task.category.name,
     createdAt: task.createdAt,
@@ -301,6 +328,7 @@ export default function KanbanTasks({
         name: trimmedName,
         description: trimmedDescription,
         pageData: { column: "planned" },
+        ganttcolumnType: "PLANNED",
         categoryId: newTaskCategoryId || undefined,
         newCategoryName: newTaskCategoryName,
       });
@@ -315,7 +343,7 @@ export default function KanbanTasks({
       }
 
       const createdTask = normalizeTask(result.data);
-      setDomainTasks(selectedDomain.id, [createdTask, ...tasks]);
+      setDomainTasks(selectedDomain.id, [...tasks, createdTask]);
       upsertCategory(result.data.category);
       setNewTaskName("");
       setNewTaskDescription("");
@@ -370,6 +398,8 @@ export default function KanbanTasks({
         name: editingTask.name,
         description: editingTask.description,
         pageData: { ...((currentTask.pageData as object) ?? {}), column: currentTask.column },
+        position: currentTask.position,
+        ganttcolumnType: columnIdToGanttColumnType(currentTask.column),
         categoryId: editingTask.categoryId || undefined,
         newCategoryName: editingTask.newCategoryName,
       });
@@ -398,121 +428,141 @@ export default function KanbanTasks({
       return;
     }
 
-    const previousById = new Map(filteredTasks.map((task) => [task.id, task]));
-    const nextTaskIds = new Set(nextTasks.map((task) => task.id));
+    const positionedNextTasks = nextTasks.map((task, index) => ({ ...task, position: index }));
+    const nextTaskIds = new Set(positionedNextTasks.map((task) => task.id));
     const hiddenTasks = selectedDomain.tasks.filter((task) => !nextTaskIds.has(task.id));
-    const nextAllTasks = [...nextTasks, ...hiddenTasks];
+    const nextAllTasks = [...positionedNextTasks, ...hiddenTasks];
     setDomainTasks(selectedDomain.id, nextAllTasks);
     setError("");
+  };
 
-    startTransition(async () => {
-      const changedTasks = nextTasks.filter((task) => {
-        const previous = previousById.get(task.id);
-        return previous && previous.column !== task.column;
-      });
+  const handleColumnSave = async (nextTasks: Task[]) => {
+    if (!selectedDomain) {
+      return;
+    }
 
-      if (changedTasks.length === 0) {
-        return;
+    const previousById = new Map(selectedDomain.tasks.map((task) => [task.id, task]));
+    const positionedNextTasks = nextTasks.map((task, index) => ({ ...task, position: index }));
+    const nextTaskIds = new Set(positionedNextTasks.map((task) => task.id));
+    const hiddenTasks = selectedDomain.tasks.filter((task) => !nextTaskIds.has(task.id));
+    const nextAllTasks = [...positionedNextTasks, ...hiddenTasks];
+
+    const changedTasks = positionedNextTasks.filter((task) => {
+      const previous = previousById.get(task.id);
+      if (!previous) {
+        return false;
       }
 
-      const results = await Promise.all(
-        changedTasks.map(async (task) =>
-          updateGanttTaskAction({
-            projectId,
-            domainId: selectedDomain.id,
-            taskId: task.id,
-            name: task.name,
-            description: task.description,
-            pageData: { ...((task.pageData as object) ?? {}), column: task.column },
-            categoryId: task.categoryId,
-          })
-        )
-      );
+      const persistedColumn = getColumnFromPageData(task.pageData);
 
-      const failedResult = results.find((result) => !result.success);
-      if (failedResult && !failedResult.success) {
-        setError(failedResult.error);
-        setDomainTasks(selectedDomain.id, selectedDomain.tasks);
-        return;
-      }
-
-      const byId = new Map(
-        results
-          .filter((result): result is { success: true; data: GanttTaskItem } => Boolean(result.success && result.data))
-          .map((result) => [result.data.id, normalizeTask(result.data)])
-      );
-      setDomainTasks(
-        selectedDomain.id,
-        nextAllTasks.map((task) => byId.get(task.id) ?? task)
+      return (
+        previous.column !== task.column ||
+        previous.position !== task.position ||
+        persistedColumn !== task.column
       );
     });
+
+    if (changedTasks.length === 0) {
+      return;
+    }
+
+    const results = await Promise.all(
+      changedTasks.map(async (task) =>
+        updateGanttTaskAction({
+          projectId,
+          domainId: selectedDomain.id,
+          taskId: task.id,
+          name: task.name,
+          description: task.description,
+          pageData: { ...((task.pageData as object) ?? {}), column: task.column },
+          position: task.position,
+          ganttcolumnType: columnIdToGanttColumnType(task.column),
+          categoryId: task.categoryId,
+        })
+      )
+    );
+
+    const failedResult = results.find((result) => !result.success);
+    if (failedResult && !failedResult.success) {
+      setError(failedResult.error);
+      setDomainTasks(selectedDomain.id, selectedDomain.tasks);
+      throw new Error(failedResult.error);
+    }
+
+    const byId = new Map(
+      results
+        .filter((result): result is { success: true; data: GanttTaskItem } => Boolean(result.success && result.data))
+        .map((result) => [result.data.id, normalizeTask(result.data)])
+    );
+    setDomainTasks(
+      selectedDomain.id,
+      nextAllTasks.map((task) => byId.get(task.id) ?? task)
+    );
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="space-y-3 rounded-md border p-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Domains</h3>
-            <Popover open={isCreateDomainOpen} onOpenChange={setIsCreateDomainOpen}>
-              <PopoverTrigger asChild>
-                <Button type="button" size="sm" variant="outline" disabled={isPending}>
-                  <Plus className="size-4" />
-                  New
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80">
-                <PopoverHeader>
-                  <PopoverTitle>Create Domain</PopoverTitle>
-                  <PopoverDescription>
-                    Each domain gets its own gantt board.
-                  </PopoverDescription>
-                </PopoverHeader>
-                <form onSubmit={handleCreateDomain} className="mt-3 space-y-2">
-                  <Input
-                    placeholder="Domain name"
-                    value={newDomainName}
-                    onChange={(e) => setNewDomainName(e.target.value)}
+      <section className="space-y-3 rounded-md border p-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Domains</h3>
+          <Popover open={isCreateDomainOpen} onOpenChange={setIsCreateDomainOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" size="sm" variant="outline" disabled={isPending}>
+                <Plus className="size-4" />
+                New
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+              <PopoverHeader>
+                <PopoverTitle>Create Domain</PopoverTitle>
+                <PopoverDescription>
+                  Each domain gets its own gantt board.
+                </PopoverDescription>
+              </PopoverHeader>
+              <form onSubmit={handleCreateDomain} className="mt-3 space-y-2">
+                <Input
+                  placeholder="Domain name"
+                  value={newDomainName}
+                  onChange={(e) => setNewDomainName(e.target.value)}
+                  disabled={isPending}
+                />
+                <Input
+                  placeholder="Domain description"
+                  value={newDomainDescription}
+                  onChange={(e) => setNewDomainDescription(e.target.value)}
+                  disabled={isPending}
+                />
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCreateDomainOpen(false)}
                     disabled={isPending}
-                  />
-                  <Input
-                    placeholder="Domain description"
-                    value={newDomainDescription}
-                    onChange={(e) => setNewDomainDescription(e.target.value)}
-                    disabled={isPending}
-                  />
-                  <div className="flex justify-end gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsCreateDomainOpen(false)}
-                      disabled={isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" size="sm" disabled={isPending}>
-                      {isPending ? "Saving..." : "Create"}
-                    </Button>
-                  </div>
-                </form>
-              </PopoverContent>
-            </Popover>
-          </div>
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={isPending}>
+                    {isPending ? "Saving..." : "Create"}
+                  </Button>
+                </div>
+              </form>
+            </PopoverContent>
+          </Popover>
+        </div>
 
-          <div className="space-y-2">
-            {sortedDomains.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No domains yet. Create one to start planning.
-              </p>
-            ) : (
-              sortedDomains.map((domain) => {
+        <div className="overflow-x-auto">
+          {sortedDomains.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No domains yet. Create one to start planning.</p>
+          ) : (
+            <div className="flex min-w-max gap-2 pb-1">
+              {sortedDomains.map((domain) => {
                 const isSelected = selectedDomainId === domain.id;
                 const isEditing = editingDomainId === domain.id;
                 return (
                   <div
                     key={domain.id}
-                    className={`rounded-md border p-2 ${
+                    className={`group min-w-56 rounded-md border p-2 transition-colors ${
                       isSelected ? "border-primary/50 bg-accent/30" : "hover:bg-accent/20"
                     }`}
                   >
@@ -522,101 +572,107 @@ export default function KanbanTasks({
                       onClick={() => setSelectedDomainId(domain.id)}
                     >
                       <p className="truncate text-sm font-medium">{domain.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{domain.description}</p>
                     </button>
-                    <div className="mt-2 flex justify-end gap-1">
-                      <Popover
-                        open={isEditing}
-                        onOpenChange={(open) => {
-                          if (open) {
-                            setEditingDomainId(domain.id);
-                            setEditDomainName(domain.name);
-                            setEditDomainDescription(domain.description);
-                            return;
-                          }
-                          setEditingDomainId(null);
-                        }}
-                      >
-                        <PopoverTrigger asChild>
+                    <div
+                      className={`grid overflow-hidden transition-[grid-template-rows] duration-200 ${
+                        isEditing ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"
+                      }`}
+                    >
+                      <div className="min-h-0">
+                        <p className="line-clamp-2 mt-1 text-xs text-muted-foreground">
+                          {domain.description}
+                        </p>
+                        <div className="mt-2 flex justify-end gap-1">
+                          <Popover
+                            open={isEditing}
+                            onOpenChange={(open) => {
+                              if (open) {
+                                setEditingDomainId(domain.id);
+                                setEditDomainName(domain.name);
+                                setEditDomainDescription(domain.description);
+                                return;
+                              }
+                              setEditingDomainId(null);
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="outline"
+                                aria-label={`Edit ${domain.name}`}
+                                disabled={isPending}
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-80">
+                              <PopoverHeader>
+                                <PopoverTitle>Edit Domain</PopoverTitle>
+                                <PopoverDescription>
+                                  Update domain name and description.
+                                </PopoverDescription>
+                              </PopoverHeader>
+                              <form
+                                onSubmit={(event) => handleUpdateDomain(event, domain.id)}
+                                className="mt-3 space-y-2"
+                              >
+                                <Input
+                                  value={editDomainName}
+                                  onChange={(e) => setEditDomainName(e.target.value)}
+                                  placeholder="Domain name"
+                                  disabled={isPending}
+                                />
+                                <Input
+                                  value={editDomainDescription}
+                                  onChange={(e) => setEditDomainDescription(e.target.value)}
+                                  placeholder="Domain description"
+                                  disabled={isPending}
+                                />
+                                <div className="flex justify-end gap-2 pt-1">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setEditingDomainId(null)}
+                                    disabled={isPending}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit" size="sm" disabled={isPending}>
+                                    {isPending ? "Saving..." : "Save"}
+                                  </Button>
+                                </div>
+                              </form>
+                            </PopoverContent>
+                          </Popover>
                           <Button
                             type="button"
                             size="icon-xs"
-                            variant="outline"
-                            aria-label={`Edit ${domain.name}`}
+                            variant="destructive"
+                            aria-label={`Delete ${domain.name}`}
+                            onClick={() => setDeletingDomainId(domain.id)}
                             disabled={isPending}
                           >
-                            <Pencil className="size-3.5" />
+                            <Trash2 className="size-3.5" />
                           </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-80">
-                          <PopoverHeader>
-                            <PopoverTitle>Edit Domain</PopoverTitle>
-                            <PopoverDescription>
-                              Update domain name and description.
-                            </PopoverDescription>
-                          </PopoverHeader>
-                          <form
-                            onSubmit={(event) => handleUpdateDomain(event, domain.id)}
-                            className="mt-3 space-y-2"
-                          >
-                            <Input
-                              value={editDomainName}
-                              onChange={(e) => setEditDomainName(e.target.value)}
-                              placeholder="Domain name"
-                              disabled={isPending}
-                            />
-                            <Input
-                              value={editDomainDescription}
-                              onChange={(e) => setEditDomainDescription(e.target.value)}
-                              placeholder="Domain description"
-                              disabled={isPending}
-                            />
-                            <div className="flex justify-end gap-2 pt-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditingDomainId(null)}
-                                disabled={isPending}
-                              >
-                                Cancel
-                              </Button>
-                              <Button type="submit" size="sm" disabled={isPending}>
-                                {isPending ? "Saving..." : "Save"}
-                              </Button>
-                            </div>
-                          </form>
-                        </PopoverContent>
-                      </Popover>
-                      <Button
-                        type="button"
-                        size="icon-xs"
-                        variant="destructive"
-                        aria-label={`Delete ${domain.name}`}
-                        onClick={() => setDeletingDomainId(domain.id)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
-        </aside>
+              })}
+            </div>
+          )}
+        </div>
+      </section>
 
-        <div className="space-y-3">
+      <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-medium">
                 {selectedDomain ? `${selectedDomain.name} Board` : "Select a domain"}
               </h3>
-              <p className="text-sm text-muted-foreground">
-                {selectedDomain
-                  ? selectedDomain.description
-                  : "Choose a domain to create and manage gantt tasks."}
-              </p>
             </div>
 
             <Popover open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -706,6 +762,7 @@ export default function KanbanTasks({
               columns={columns}
               data={filteredTasks}
               onDataChange={handleColumnChange}
+              onDataSave={handleColumnSave}
             >
               {(column) => (
                 <KanbanBoard id={column.id} key={column.id}>
@@ -865,7 +922,6 @@ export default function KanbanTasks({
               ))}
             </div>
           )}
-        </div>
       </div>
 
       {error ? (

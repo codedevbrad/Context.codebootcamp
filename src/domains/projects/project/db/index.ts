@@ -12,6 +12,15 @@ export type ProjectListItem = {
   updatedAt: Date;
 };
 
+export type ProjectContextListItem = {
+  id: string;
+  name: string;
+  description: string;
+  contextGroupId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type ProjectDetails = ProjectListItem & {
   dbmodel: unknown;
   projectGantdomains: ProjectGanttDomainItem[];
@@ -19,6 +28,7 @@ export type ProjectDetails = ProjectListItem & {
 };
 
 export type GanttTaskColumnId = "planned" | "in_progress" | "done";
+export type GanttColumnType = "PLANNED" | "IN_PROGRESS" | "DONE";
 
 export type CategoryOption = {
   id: string;
@@ -30,6 +40,8 @@ export type GanttTaskItem = {
   name: string;
   description: string;
   pageData: unknown;
+  position: number;
+  ganttcolumnType: GanttColumnType;
   categoryId: string;
   category: CategoryOption;
   projectGantdomainsId: string;
@@ -137,12 +149,14 @@ export async function getProjectById(projectId: string): Promise<ProjectDetails 
             createdAt: true,
             updatedAt: true,
             tasks: {
-              orderBy: { updatedAt: "desc" },
+              orderBy: [{ position: "asc" }, { updatedAt: "desc" }],
               select: {
                 id: true,
                 name: true,
                 description: true,
                 pageData: true,
+                position: true,
+                ganttcolumnType: true,
                 categoryId: true,
                 projectGantdomainsId: true,
                 createdAt: true,
@@ -177,6 +191,45 @@ export async function getProjectById(projectId: string): Promise<ProjectDetails 
     ...project,
     categories,
   };
+}
+
+export async function getProjectContexts(
+  projectId: string
+): Promise<ProjectContextListItem[]> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return [];
+  }
+
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      userId,
+    },
+    select: { id: true },
+  });
+
+  if (!project) {
+    return [];
+  }
+
+  return prisma.context.findMany({
+    where: {
+      userId,
+      projects: {
+        some: { id: projectId },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      contextGroupId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 }
 
 export async function createProjectAction(
@@ -220,6 +273,61 @@ export async function createProjectAction(
   } catch (error) {
     console.error("Error creating project:", error);
     return { success: false, error: "Failed to create project" };
+  }
+}
+
+export async function createProjectContextAction(
+  projectId: string,
+  name: string,
+  description: string
+): Promise<ActionResult<ProjectContextListItem>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+
+  if (!trimmedName) {
+    return { success: false, error: "Context name is required" };
+  }
+
+  if (!trimmedDescription) {
+    return { success: false, error: "Context description is required" };
+  }
+
+  try {
+    const existingProject = await getProjectOwnership(projectId, userId);
+
+    if (!existingProject) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const context = await prisma.context.create({
+      data: {
+        name: trimmedName,
+        description: trimmedDescription,
+        content: {},
+        userId,
+        projects: {
+          connect: { id: projectId },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        contextGroupId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return { success: true, data: context };
+  } catch (error) {
+    console.error("Error creating project context:", error);
+    return { success: false, error: "Failed to create context" };
   }
 }
 
@@ -416,11 +524,14 @@ export async function createProjectGanttDomainAction(
         createdAt: true,
         updatedAt: true,
         tasks: {
+          orderBy: [{ position: "asc" }, { updatedAt: "desc" }],
           select: {
             id: true,
             name: true,
             description: true,
             pageData: true,
+            position: true,
+            ganttcolumnType: true,
             categoryId: true,
             projectGantdomainsId: true,
             createdAt: true,
@@ -492,12 +603,14 @@ export async function updateProjectGanttDomainAction(
         createdAt: true,
         updatedAt: true,
         tasks: {
-          orderBy: { updatedAt: "desc" },
+          orderBy: [{ position: "asc" }, { updatedAt: "desc" }],
           select: {
             id: true,
             name: true,
             description: true,
             pageData: true,
+            position: true,
+            ganttcolumnType: true,
             categoryId: true,
             projectGantdomainsId: true,
             createdAt: true,
@@ -567,6 +680,7 @@ export async function createGanttTaskAction(params: {
   name: string;
   description: string;
   pageData?: unknown;
+  ganttcolumnType?: GanttColumnType;
   categoryId?: string;
   newCategoryName?: string;
 }): Promise<ActionResult<GanttTaskItem>> {
@@ -613,11 +727,19 @@ export async function createGanttTaskAction(params: {
       };
     }
 
+    const nextPosition = await prisma.ganttTasks.count({
+      where: {
+        projectGantdomainsId: params.domainId,
+      },
+    });
+
     const createdTask = await prisma.ganttTasks.create({
       data: {
         name: trimmedName,
         description: trimmedDescription,
         pageData: params.pageData ?? { column: "planned" },
+        position: nextPosition,
+        ganttcolumnType: params.ganttcolumnType ?? "PLANNED",
         categoryId: categoryResult.data,
         projectGantdomainsId: params.domainId,
         projectId: params.projectId,
@@ -627,6 +749,8 @@ export async function createGanttTaskAction(params: {
         name: true,
         description: true,
         pageData: true,
+        position: true,
+        ganttcolumnType: true,
         categoryId: true,
         projectGantdomainsId: true,
         createdAt: true,
@@ -654,6 +778,8 @@ export async function updateGanttTaskAction(params: {
   name: string;
   description: string;
   pageData?: unknown;
+  position?: number;
+  ganttcolumnType?: GanttColumnType;
   categoryId?: string;
   newCategoryName?: string;
 }): Promise<ActionResult<GanttTaskItem>> {
@@ -709,6 +835,8 @@ export async function updateGanttTaskAction(params: {
         name: trimmedName,
         description: trimmedDescription,
         pageData: params.pageData ?? { column: "planned" },
+        position: params.position,
+        ganttcolumnType: params.ganttcolumnType,
         categoryId: categoryResult.data,
       },
       select: {
@@ -716,6 +844,8 @@ export async function updateGanttTaskAction(params: {
         name: true,
         description: true,
         pageData: true,
+        position: true,
+        ganttcolumnType: true,
         categoryId: true,
         projectGantdomainsId: true,
         createdAt: true,

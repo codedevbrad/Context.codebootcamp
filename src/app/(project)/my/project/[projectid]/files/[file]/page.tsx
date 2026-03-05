@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProjectById } from "@/domains/projects/project/db";
 import { getProjectWritingById } from "@/domains/projects/writing/db";
-import ProjectSubnav from "@/app/(project)/my/project/[projectid]/_components/project-subnav";
 import { ProjectWritingEditor } from "@/app/(project)/my/project/[projectid]/files/[file]/_components/project-writing-editor";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +27,6 @@ export default async function ProjectFilePage({
         <h1 className="text-2xl font-semibold">{writing.title}</h1>
         <p className="text-muted-foreground">Write and edit content for this project file.</p>
       </div>
-
-      <ProjectSubnav projectId={project.id} current="files" />
 
       <ProjectWritingEditor
         projectId={project.id}
