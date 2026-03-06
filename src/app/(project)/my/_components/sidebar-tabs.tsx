@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { ProjectSidebar } from "@/domains/projects/project/_components/project-sidebar";
 import type { ProjectListItem } from "@/domains/projects/project/db";
 
@@ -7,8 +8,19 @@ type SidebarTabsProps = {
 };
 
 export function SidebarTabs({initialProjects }: SidebarTabsProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <ProjectSidebar initialProjects={initialProjects} />
+    <div
+      className={`min-h-0 overflow-y-auto md:h-full md:shrink-0 transition-all ${
+        isCollapsed ? "w-20" : "w-1/5"
+      }`}
+    >
+      <ProjectSidebar
+        initialProjects={initialProjects}
+        isCollapsed={isCollapsed}
+        onToggleCollapsed={() => setIsCollapsed((prev) => !prev)}
+      />
+    </div>
   );
 }

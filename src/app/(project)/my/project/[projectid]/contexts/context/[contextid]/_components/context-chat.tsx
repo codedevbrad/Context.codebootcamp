@@ -65,8 +65,8 @@ export function ContextChat({ contextId, initialConversation }: ContextChatProps
               key={`${message.createdAt}-${index}`}
               className={`rounded p-2 text-sm ${
                 message.role === "user"
-                  ? "bg-accent/40 text-foreground"
-                  : "bg-muted text-foreground"
+                  ? "bg-black text-white border-rounded-xl"
+                  : "  text-foreground"
               }`}
             >
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">

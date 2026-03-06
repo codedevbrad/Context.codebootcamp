@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/custom/confirm-modal";
 import {
   Accordion,
@@ -29,6 +29,8 @@ import type { ProjectWritingListItem } from "@/domains/projects/writing/db";
 
 type ProjectSidebarProps = {
   initialProjects: ProjectListItem[];
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
 };
 
 type SidebarProjectItem = Omit<ProjectListItem, "createdAt" | "updatedAt"> & {
@@ -251,12 +253,17 @@ function ProjectContextsAccordion({ projectId, pathname }: ProjectFilesAccordion
   );
 }
 
-export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
+export function ProjectSidebar({
+  initialProjects,
+  isCollapsed: controlledIsCollapsed,
+  onToggleCollapsed,
+}: ProjectSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [uncontrolledIsCollapsed, setUncontrolledIsCollapsed] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -366,55 +373,82 @@ export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
     });
   };
 
+  const isCollapsed = controlledIsCollapsed ?? uncontrolledIsCollapsed;
+
+  const toggleCollapsed = () => {
+    if (onToggleCollapsed) {
+      onToggleCollapsed();
+      return;
+    }
+
+    setUncontrolledIsCollapsed((prev) => !prev);
+  };
+
   return (
-    <aside className="h-full w-full max-w-xs shrink-0 pr-4 md:max-w-sm">
+    <aside className={`h-full w-full shrink-0 transition-all ${isCollapsed ? "pr-2" : "pr-4"}`}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="mr-3 text-lg font-semibold">Projects</h2>
-          <Popover open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="outline">
-                <Plus className="size-4" />
-                New
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80">
-              <PopoverHeader>
-                <PopoverTitle>Create Project</PopoverTitle>
-                <PopoverDescription>
-                  Add a project that will appear in your sidebar.
-                </PopoverDescription>
-              </PopoverHeader>
-              <form onSubmit={handleCreate} className="mt-3 space-y-2">
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Project name"
-                  disabled={isPending}
-                />
-                <Input
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Project description"
-                  disabled={isPending}
-                />
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsCreateOpen(false)}
+          {!isCollapsed ? <h2 className="mr-3 text-lg font-semibold">Projects</h2> : null}
+          <div className="ml-auto flex items-center gap-2">
+            <Popover open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size={isCollapsed ? "icon" : "sm"}
+                  variant="outline"
+                  aria-label="Create project"
+                >
+                  <Plus className="size-4" />
+                  {!isCollapsed ? "New" : null}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80">
+                <PopoverHeader>
+                  <PopoverTitle>Create Project</PopoverTitle>
+                  <PopoverDescription>
+                    Add a project that will appear in your sidebar.
+                  </PopoverDescription>
+                </PopoverHeader>
+                <form onSubmit={handleCreate} className="mt-3 space-y-2">
+                  <Input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Project name"
                     disabled={isPending}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm" disabled={isPending}>
-                    {isPending ? "Saving..." : "Create"}
-                  </Button>
-                </div>
-              </form>
-            </PopoverContent>
-          </Popover>
+                  />
+                  <Input
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="Project description"
+                    disabled={isPending}
+                  />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsCreateOpen(false)}
+                      disabled={isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" size="sm" disabled={isPending}>
+                      {isPending ? "Saving..." : "Create"}
+                    </Button>
+                  </div>
+                </form>
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              aria-label={isCollapsed ? "Expand projects sidebar" : "Collapse projects sidebar"}
+              onClick={toggleCollapsed}
+            >
+              {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+            </Button>
+          </div>
         </div>
 
         {error ? (
@@ -425,14 +459,15 @@ export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
 
         <div className="space-y-2">
           {sortedProjects.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No projects yet. Create one from the New button.
+            <p className={`text-sm text-muted-foreground ${isCollapsed ? "text-center" : ""}`}>
+              {isCollapsed ? "No projects" : "No projects yet. Create one from the New button."}
             </p>
           ) : (
             sortedProjects.map((project) => {
               const href = `/my/project/${project.id}`;
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               const isEditingThis = editingId === project.id;
+              const projectInitial = project.name.trim().charAt(0).toUpperCase() || "?";
 
               return (
                 <div
@@ -441,97 +476,117 @@ export function ProjectSidebar({ initialProjects }: ProjectSidebarProps) {
                     isActive ? "border-primary/40 bg-accent/30" : "hover:bg-accent/20"
                   }`}
                 >
-                  <div className="flex items-start gap-2">
-                    <Link href={href} className="min-w-0 flex-1 rounded px-2 py-1 text-sm">
-                      <p className="truncate font-medium">{project.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {project.description}
-                      </p>
+                  <div className={`flex ${isCollapsed ? "justify-center" : "items-start gap-2"}`}>
+                    <Link
+                      href={href}
+                      className={`min-w-0 rounded px-2 py-1 text-sm ${
+                        isCollapsed
+                          ? "flex h-9 w-9 items-center justify-center text-base font-semibold"
+                          : "flex-1"
+                      }`}
+                      title={project.name}
+                    >
+                      {isCollapsed ? (
+                        projectInitial
+                      ) : (
+                        <>
+                          <p className="truncate font-medium">{project.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {project.description}
+                          </p>
+                        </>
+                      )}
                     </Link>
 
-                    <div
-                      className={`flex items-center gap-1 transition-opacity ${
-                        isEditingThis
-                          ? "opacity-100"
-                          : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100"
-                      }`}
-                    >
-                      <Popover
-                        open={isEditingThis}
-                        onOpenChange={(open) => {
-                          if (open) {
-                            startEdit(project);
-                          } else if (isEditingThis) {
-                            cancelEdit();
-                          }
-                        }}
+                    {!isCollapsed ? (
+                      <div
+                        className={`flex items-center gap-1 transition-opacity ${
+                          isEditingThis
+                            ? "opacity-100"
+                            : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100"
+                        }`}
                       >
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon-xs"
-                            variant="outline"
-                            aria-label={`Edit ${project.name}`}
-                            disabled={isPending}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-80">
-                          <PopoverHeader>
-                            <PopoverTitle>Edit Project</PopoverTitle>
-                            <PopoverDescription>
-                              Update this project name and description.
-                            </PopoverDescription>
-                          </PopoverHeader>
-                          <form
-                            onSubmit={(e) => saveEdit(e, project.id)}
-                            className="mt-3 space-y-2"
-                          >
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
+                        <Popover
+                          open={isEditingThis}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              startEdit(project);
+                            } else if (isEditingThis) {
+                              cancelEdit();
+                            }
+                          }}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="outline"
+                              aria-label={`Edit ${project.name}`}
                               disabled={isPending}
-                              placeholder="Project name"
-                            />
-                            <Input
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              disabled={isPending}
-                              placeholder="Project description"
-                            />
-                            <div className="flex justify-end gap-2 pt-1">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={cancelEdit}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-80">
+                            <PopoverHeader>
+                              <PopoverTitle>Edit Project</PopoverTitle>
+                              <PopoverDescription>
+                                Update this project name and description.
+                              </PopoverDescription>
+                            </PopoverHeader>
+                            <form
+                              onSubmit={(e) => saveEdit(e, project.id)}
+                              className="mt-3 space-y-2"
+                            >
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
                                 disabled={isPending}
-                              >
-                                Cancel
-                              </Button>
-                              <Button type="submit" size="sm" disabled={isPending}>
-                                {isPending ? "Saving..." : "Save"}
-                              </Button>
-                            </div>
-                          </form>
-                        </PopoverContent>
-                      </Popover>
+                                placeholder="Project name"
+                              />
+                              <Input
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                disabled={isPending}
+                                placeholder="Project description"
+                              />
+                              <div className="flex justify-end gap-2 pt-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelEdit}
+                                  disabled={isPending}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button type="submit" size="sm" disabled={isPending}>
+                                  {isPending ? "Saving..." : "Save"}
+                                </Button>
+                              </div>
+                            </form>
+                          </PopoverContent>
+                        </Popover>
 
-                      <Button
-                        type="button"
-                        size="icon-xs"
-                        variant="destructive"
-                        aria-label={`Delete ${project.name}`}
-                        onClick={() => requestDelete(project)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
+                        <Button
+                          type="button"
+                          size="icon-xs"
+                          variant="destructive"
+                          aria-label={`Delete ${project.name}`}
+                          onClick={() => requestDelete(project)}
+                          disabled={isPending}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
-                  <ProjectFilesAccordion projectId={project.id} pathname={pathname} />
-                  <ProjectContextsAccordion projectId={project.id} pathname={pathname} />
+                  {!isCollapsed ? (
+                    <>
+                      <ProjectFilesAccordion projectId={project.id} pathname={pathname} />
+                      <ProjectContextsAccordion projectId={project.id} pathname={pathname} />
+                    </>
+                  ) : null}
                 </div>
               );
             })

@@ -10,7 +10,7 @@ export function Header() {
         <div className=" flex">
           <Link href="/" className="flex">
             <h3 className="font-bold">
-              ContextIO
+               Design.Codebootcamp
             </h3>
           </Link>   
         </div>

@@ -7,7 +7,7 @@ import {
   KanbanHeader,
   KanbanProvider,
 } from "@/components/kibo-ui/kanban";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Clipboard, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ConfirmModal } from "@/components/custom/confirm-modal";
+import { HorizontalScrollControls } from "@/components/custom/horizontal-scroll-controls";
 import {
   createGanttTaskAction,
   createProjectGanttDomainAction,
@@ -199,6 +200,19 @@ export default function KanbanTasks({
     }
     return tasks.filter((task) => task.categoryId === activeCategoryFilterId);
   }, [tasks, activeCategoryFilterId]);
+  const taskCountByColumn = useMemo(() => {
+    const counts: Record<ColumnId, number> = {
+      planned: 0,
+      in_progress: 0,
+      done: 0,
+    };
+
+    filteredTasks.forEach((task) => {
+      counts[task.column] += 1;
+    });
+
+    return counts;
+  }, [filteredTasks]);
 
   const setDomainTasks = (domainId: string, nextTasks: Task[]) => {
     setDomains((prev) =>
@@ -378,6 +392,29 @@ export default function KanbanTasks({
     });
   };
 
+  const handleCopyTaskToClipboard = async (task: Task) => {
+    const content = `Title: ${task.name}\nDescription: ${task.description}`;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(content);
+        return;
+      }
+
+      const textarea = document.createElement("textarea");
+      textarea.value = content;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "absolute";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch {
+      setError("Failed to copy task details");
+    }
+  };
+
   const handleEditTask = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedDomain || !editingTask) {
@@ -551,7 +588,11 @@ export default function KanbanTasks({
           </Popover>
         </div>
 
-        <div className="overflow-x-auto">
+        <HorizontalScrollControls
+          leftAriaLabel="Scroll domains left"
+          rightAriaLabel="Scroll domains right"
+          disabled={isPending}
+        >
           {sortedDomains.length === 0 ? (
             <p className="text-sm text-muted-foreground">No domains yet. Create one to start planning.</p>
           ) : (
@@ -566,13 +607,17 @@ export default function KanbanTasks({
                       isSelected ? "border-primary/50 bg-accent/30" : "hover:bg-accent/20"
                     }`}
                   >
-                    <button
-                      type="button"
-                      className="w-full text-left"
+                    <div
+                      className="w-full text-left hover:bg-gray-50 cursor-pointer"
                       onClick={() => setSelectedDomainId(domain.id)}
                     >
-                      <p className="truncate text-sm font-medium">{domain.name}</p>
-                    </button>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium">{domain.name}</p>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {domain.tasks.length}
+                        </span>
+                      </div>
+                    </div>
                     <div
                       className={`grid overflow-hidden transition-[grid-template-rows] duration-200 ${
                         isEditing ? "grid-rows-[1fr]" : "grid-rows-[0fr] group-hover:grid-rows-[1fr]"
@@ -664,7 +709,7 @@ export default function KanbanTasks({
               })}
             </div>
           )}
-        </div>
+        </HorizontalScrollControls>
       </section>
 
       <div className="space-y-3">
@@ -767,28 +812,46 @@ export default function KanbanTasks({
               {(column) => (
                 <KanbanBoard id={column.id} key={column.id}>
                   <KanbanHeader>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: column.color }}
-                      />
-                      <span>{column.name}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: column.color }}
+                        />
+                        <span>{column.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {taskCountByColumn[column.id]}
+                      </span>
                     </div>
                   </KanbanHeader>
                   <KanbanCards id={column.id}>
                     {(task: Task) => (
                       <KanbanCard column={column.id} id={task.id} key={task.id} name={task.name}>
-                        <div className="group flex items-start justify-between gap-2">
+                      <div
+                          className="group flex items-start justify-between gap-2"
+                        >
                           <div className="min-w-0 flex-1">
                             <p className="m-0 text-sm font-medium wrap-anywhere">{task.name}</p>
                             <p className="m-0 text-xs text-muted-foreground wrap-anywhere">
                               {task.description}
                             </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Category: {task.categoryName}
+                            <p className="mt-1 inline-flex w-fit items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
+                              {task.categoryName}
                             </p>
                           </div>
                           <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="outline"
+                              aria-label={`Copy ${task.name}`}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => void handleCopyTaskToClipboard(task)}
+                              disabled={isPending}
+                            >
+                              <Clipboard className="size-3.5" />
+                            </Button>
                             <Popover
                               open={editingTask?.id === task.id}
                               onOpenChange={(open) => {
