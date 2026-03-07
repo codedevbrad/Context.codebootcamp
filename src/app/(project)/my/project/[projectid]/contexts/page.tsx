@@ -38,7 +38,7 @@ export default async function ProjectContextsPage({
             No contexts linked yet. Add one from the project sidebar.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-2 gap-2">
             {contexts.map((context) => (
               <li key={context.id} className="rounded border p-2">
                 <Link

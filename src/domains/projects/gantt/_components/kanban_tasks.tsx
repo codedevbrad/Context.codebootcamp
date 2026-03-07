@@ -11,6 +11,7 @@ import { Clipboard, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
@@ -398,6 +399,7 @@ export default function KanbanTasks({
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(content);
+        toast.success("Task details copied");
         return;
       }
 
@@ -408,10 +410,15 @@ export default function KanbanTasks({
       textarea.style.left = "-9999px";
       document.body.appendChild(textarea);
       textarea.select();
-      document.execCommand("copy");
+      const isCopied = document.execCommand("copy");
       document.body.removeChild(textarea);
+      if (!isCopied) {
+        throw new Error("Clipboard copy command failed");
+      }
+      toast.success("Task details copied");
     } catch {
       setError("Failed to copy task details");
+      toast.error("Failed to copy task details");
     }
   };
 
