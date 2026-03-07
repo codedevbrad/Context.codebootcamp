@@ -31,8 +31,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import tunnel from "tunnel-rat";
+import { VerticalScrollControls } from "@/components/custom/vertical-scroll-controls";
 import { Card } from "@/components/ui/card";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 const t = tunnel();
@@ -167,17 +167,20 @@ export const KanbanCards = <T extends KanbanItemProps = KanbanItemProps>({
   const items = filteredData.map((item) => item.id);
 
   return (
-    <ScrollArea className="min-h-0 flex-1 overflow-hidden">
-      <SortableContext items={items}>
+    <SortableContext items={items}>
+      <VerticalScrollControls
+        upAriaLabel={`Scroll ${props.id} up`}
+        downAriaLabel={`Scroll ${props.id} down`}
+        controlsVerticalPosition="together"
+      >
         <div
           className={cn("flex flex-col gap-2 p-2", className)}
           {...props}
         >
           {filteredData.map(children)}
         </div>
-      </SortableContext>
-      <ScrollBar orientation="vertical" />
-    </ScrollArea>
+      </VerticalScrollControls>
+    </SortableContext>
   );
 };
 

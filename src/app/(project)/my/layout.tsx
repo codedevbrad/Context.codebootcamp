@@ -1,5 +1,6 @@
 import { getUserProjects } from "@/domains/projects/project/db";
 import { SidebarTabs } from "@/app/(project)/my/_components/sidebar-tabs";
+import { MyLayoutScrollShell } from "@/app/(project)/my/_components/my-layout-scroll-shell";
 import { AppBreadcrumb } from "@/components/custom/breadcrumb";
 
 export default async function MyLayout({
@@ -12,12 +13,10 @@ export default async function MyLayout({
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden md:flex-row">
       <SidebarTabs initialProjects={projects} />
-      <div className="min-w-0 min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-4">
-          <AppBreadcrumb />
-          {children}
-        </div>
-      </div>
+      <MyLayoutScrollShell>
+        <AppBreadcrumb />
+        {children}
+      </MyLayoutScrollShell>
     </div>
   );
 }

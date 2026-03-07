@@ -591,7 +591,8 @@ export default function KanbanTasks({
         <HorizontalScrollControls
           leftAriaLabel="Scroll domains left"
           rightAriaLabel="Scroll domains right"
-          disabled={isPending}
+          disabled={isPending} 
+
         >
           {sortedDomains.length === 0 ? (
             <p className="text-sm text-muted-foreground">No domains yet. Create one to start planning.</p>
@@ -600,6 +601,8 @@ export default function KanbanTasks({
               {sortedDomains.map((domain) => {
                 const isSelected = selectedDomainId === domain.id;
                 const isEditing = editingDomainId === domain.id;
+                const completedTaskCount = domain.tasks.filter((task) => task.column === "done").length;
+                const totalTaskCount = domain.tasks.length;
                 return (
                   <div
                     key={domain.id}
@@ -613,9 +616,14 @@ export default function KanbanTasks({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-medium">{domain.name}</p>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {domain.tasks.length}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-1 text-xs">
+                          <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+                            {completedTaskCount}
+                          </span>
+                          <span className="rounded border border-muted-foreground/30 bg-muted/40 px-1.5 py-0.5 text-muted-foreground">
+                            {totalTaskCount}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div
@@ -828,146 +836,146 @@ export default function KanbanTasks({
                   <KanbanCards id={column.id}>
                     {(task: Task) => (
                       <KanbanCard column={column.id} id={task.id} key={task.id} name={task.name}>
-                      <div
-                          className="group flex items-start justify-between gap-2"
-                        >
-                          <div className="min-w-0 flex-1">
+                        <div className="group space-y-2">
+                          <div className="min-w-0">
                             <p className="m-0 text-sm font-medium wrap-anywhere">{task.name}</p>
                             <p className="m-0 text-xs text-muted-foreground wrap-anywhere">
                               {task.description}
                             </p>
-                            <p className="mt-1 inline-flex w-fit items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="inline-flex w-fit items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
                               {task.categoryName}
                             </p>
-                          </div>
-                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <Button
-                              type="button"
-                              size="icon-xs"
-                              variant="outline"
-                              aria-label={`Copy ${task.name}`}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => void handleCopyTaskToClipboard(task)}
-                              disabled={isPending}
-                            >
-                              <Clipboard className="size-3.5" />
-                            </Button>
-                            <Popover
-                              open={editingTask?.id === task.id}
-                              onOpenChange={(open) => {
-                                if (open) {
-                                  setEditingTask({
-                                    id: task.id,
-                                    name: task.name,
-                                    description: task.description,
-                                    categoryId: task.categoryId,
-                                    newCategoryName: "",
-                                  });
-                                  return;
-                                }
-                                if (editingTask?.id === task.id) {
-                                  setEditingTask(null);
-                                }
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="outline"
-                                  aria-label={`Edit ${task.name}`}
-                                  disabled={isPending}
-                                  onPointerDown={(e) => e.stopPropagation()}
-                                >
-                                  <Pencil className="size-3.5" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent align="end" className="w-96">
-                                <PopoverHeader>
-                                  <PopoverTitle>Edit Task</PopoverTitle>
-                                  <PopoverDescription>
-                                    Update task details and category.
-                                  </PopoverDescription>
-                                </PopoverHeader>
-                                {editingTask?.id === task.id ? (
-                                  <form onSubmit={handleEditTask} className="mt-3 space-y-2">
-                                    <Input
-                                      value={editingTask.name}
-                                      onChange={(e) =>
-                                        setEditingTask((prev) =>
-                                          prev ? { ...prev, name: e.target.value } : prev
-                                        )
-                                      }
-                                      disabled={isPending}
-                                      placeholder="Task name"
-                                    />
-                                    <Input
-                                      value={editingTask.description}
-                                      onChange={(e) =>
-                                        setEditingTask((prev) =>
-                                          prev ? { ...prev, description: e.target.value } : prev
-                                        )
-                                      }
-                                      disabled={isPending}
-                                      placeholder="Task description"
-                                    />
-                                    <CategoryPickerCreator
-                                      categories={categories}
-                                      selectedCategoryId={editingTask.categoryId}
-                                      onSelectedCategoryIdChange={(value) =>
-                                        setEditingTask((prev) =>
-                                          prev
-                                            ? {
-                                                ...prev,
-                                                categoryId: value,
-                                                newCategoryName: "",
-                                              }
-                                            : prev
-                                        )
-                                      }
-                                      newCategoryName={editingTask.newCategoryName}
-                                      onNewCategoryNameChange={(value) =>
-                                        setEditingTask((prev) =>
-                                          prev
-                                            ? {
-                                                ...prev,
-                                                newCategoryName: value,
-                                                categoryId: value.trim() ? "" : prev.categoryId,
-                                              }
-                                            : prev
-                                        )
-                                      }
-                                      disabled={isPending}
-                                    />
-                                    <div className="flex justify-end gap-2 pt-1">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setEditingTask(null)}
+                            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="outline"
+                                aria-label={`Copy ${task.name}`}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={() => void handleCopyTaskToClipboard(task)}
+                                disabled={isPending}
+                              >
+                                <Clipboard className="size-3.5" />
+                              </Button>
+                              <Popover
+                                open={editingTask?.id === task.id}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    setEditingTask({
+                                      id: task.id,
+                                      name: task.name,
+                                      description: task.description,
+                                      categoryId: task.categoryId,
+                                      newCategoryName: "",
+                                    });
+                                    return;
+                                  }
+                                  if (editingTask?.id === task.id) {
+                                    setEditingTask(null);
+                                  }
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="icon-xs"
+                                    variant="outline"
+                                    aria-label={`Edit ${task.name}`}
+                                    disabled={isPending}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                  >
+                                    <Pencil className="size-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="end" className="w-96">
+                                  <PopoverHeader>
+                                    <PopoverTitle>Edit Task</PopoverTitle>
+                                    <PopoverDescription>
+                                      Update task details and category.
+                                    </PopoverDescription>
+                                  </PopoverHeader>
+                                  {editingTask?.id === task.id ? (
+                                    <form onSubmit={handleEditTask} className="mt-3 space-y-2">
+                                      <Input
+                                        value={editingTask.name}
+                                        onChange={(e) =>
+                                          setEditingTask((prev) =>
+                                            prev ? { ...prev, name: e.target.value } : prev
+                                          )
+                                        }
                                         disabled={isPending}
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button type="submit" size="sm" disabled={isPending}>
-                                        {isPending ? "Saving..." : "Save"}
-                                      </Button>
-                                    </div>
-                                  </form>
-                                ) : null}
-                              </PopoverContent>
-                            </Popover>
-                            <Button
-                              type="button"
-                              size="icon-xs"
-                              variant="ghost"
-                              aria-label={`Delete ${task.name}`}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => setDeletingTaskId(task.id)}
-                              disabled={isPending}
-                            >
-                              <Trash2 className="size-3.5 text-destructive" />
-                            </Button>
+                                        placeholder="Task name"
+                                      />
+                                      <Input
+                                        value={editingTask.description}
+                                        onChange={(e) =>
+                                          setEditingTask((prev) =>
+                                            prev ? { ...prev, description: e.target.value } : prev
+                                          )
+                                        }
+                                        disabled={isPending}
+                                        placeholder="Task description"
+                                      />
+                                      <CategoryPickerCreator
+                                        categories={categories}
+                                        selectedCategoryId={editingTask.categoryId}
+                                        onSelectedCategoryIdChange={(value) =>
+                                          setEditingTask((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  categoryId: value,
+                                                  newCategoryName: "",
+                                                }
+                                              : prev
+                                          )
+                                        }
+                                        newCategoryName={editingTask.newCategoryName}
+                                        onNewCategoryNameChange={(value) =>
+                                          setEditingTask((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  newCategoryName: value,
+                                                  categoryId: value.trim() ? "" : prev.categoryId,
+                                                }
+                                              : prev
+                                          )
+                                        }
+                                        disabled={isPending}
+                                      />
+                                      <div className="flex justify-end gap-2 pt-1">
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setEditingTask(null)}
+                                          disabled={isPending}
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button type="submit" size="sm" disabled={isPending}>
+                                          {isPending ? "Saving..." : "Save"}
+                                        </Button>
+                                      </div>
+                                    </form>
+                                  ) : null}
+                                </PopoverContent>
+                              </Popover>
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={`Delete ${task.name}`}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={() => setDeletingTaskId(task.id)}
+                                disabled={isPending}
+                              >
+                                <Trash2 className="size-3.5 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </KanbanCard>
