@@ -76,30 +76,32 @@ export function ProjectWritingEditor({
   }
 
   return (
-    <section className="space-y-3 rounded-md border p-4">
+    <section className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-md border p-4">
       {error ? (
         <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p>
       ) : null}
 
-      <TipTapEditor
-        initialContent={normalizeTiptapContent(writing.content)}
-        onUpdate={() => {
-          setError("");
-        }}
-        onDebouncedUpdate={async (json) => {
-          const safeJson = normalizeTiptapContent(json);
-          const result = await updateWritingContent(safeJson);
-          if (!result.success) {
-            setError(result.error);
-          } else {
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <TipTapEditor
+          initialContent={normalizeTiptapContent(writing.content)}
+          onUpdate={() => {
             setError("");
-          }
+          }}
+          onDebouncedUpdate={async (json) => {
+            const safeJson = normalizeTiptapContent(json);
+            const result = await updateWritingContent(safeJson);
+            if (!result.success) {
+              setError(result.error);
+            } else {
+              setError("");
+            }
 
-          return result;
-        }}
-        updateDebounceMs={700}
-        showSaveStatus
-      />
+            return result;
+          }}
+          updateDebounceMs={700}
+          showSaveStatus
+        />
+      </div>
 
       <ConfirmModal
         open={isDeleting}

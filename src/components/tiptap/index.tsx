@@ -183,7 +183,7 @@ export default function TipTapEditor({
   };
 
   return (
-    <div className="flex flex-col w-full h-screen">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       {!readOnly && (
         <div className="w-full px-6 sm:px-10 pt-4 pb-2">
           <div className="mx-auto max-w-4xl overflow-x-auto">
@@ -287,23 +287,25 @@ export default function TipTapEditor({
       )}
 
       {/* Editor */}
-      <div className="w-full flex-1 px-6 sm:px-10 py-3">
+      <div className="w-full flex-1 min-h-0 px-6 sm:px-10 py-3 overflow-hidden">
         {showSaveStatus ? (
           <div className="mb-2 flex justify-end">
             <span className="text-xs text-muted-foreground">{saveMessage}</span>
           </div>
         ) : null}
-        <EditorContent
-          editor={editor}
-          className="prose prose-lg dark:prose-invert max-w-4xl mx-auto focus:outline-none"
-        />
+        <div className="mx-auto h-full min-h-0 w-full max-w-4xl overflow-y-auto">
+          <EditorContent
+            editor={editor}
+            className="prose prose-lg dark:prose-invert max-w-none focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* Global Styling */}
       <style jsx global>{`
         .ProseMirror {
           outline: none;
-          min-height: calc(100vh - 120px);
+          min-height: 100%;
           line-height: 1.75;
           font-size: 1.05rem;
         }
