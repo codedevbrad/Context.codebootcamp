@@ -190,7 +190,7 @@ export default function KanbanTasks({
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskCategoryId, setNewTaskCategoryId] = useState("");
   const [newTaskCategoryName, setNewTaskCategoryName] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createTaskColumn, setCreateTaskColumn] = useState<ColumnId | null>(null);
   const [activeCategoryFilterId, setActiveCategoryFilterId] = useState<string>("all");
   const [editingTask, setEditingTask] = useState<EditingTaskState | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
@@ -324,6 +324,10 @@ export default function KanbanTasks({
       setError("Select or create a domain first");
       return;
     }
+    if (!createTaskColumn) {
+      setError("Choose a column before creating a task");
+      return;
+    }
 
     const trimmedName = newTaskName.trim();
     const trimmedDescription = newTaskDescription.trim();
@@ -343,8 +347,8 @@ export default function KanbanTasks({
         domainId: selectedDomain.id,
         name: trimmedName,
         description: trimmedDescription,
-        pageData: { column: "planned" },
-        ganttcolumnType: "PLANNED",
+        pageData: { column: createTaskColumn },
+        ganttcolumnType: columnIdToGanttColumnType(createTaskColumn),
         categoryId: newTaskCategoryId || undefined,
         newCategoryName: newTaskCategoryName,
       });
@@ -365,7 +369,7 @@ export default function KanbanTasks({
       setNewTaskDescription("");
       setNewTaskCategoryId("");
       setNewTaskCategoryName("");
-      setIsCreateOpen(false);
+      setCreateTaskColumn(null);
     });
   };
 
@@ -740,63 +744,6 @@ export default function KanbanTasks({
               </h3>
             </div>
 
-            <Popover open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={isPending || !selectedDomain}
-                >
-                  <Plus className="size-4" />
-                  New Task
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-96">
-                <PopoverHeader>
-                  <PopoverTitle>Create Task</PopoverTitle>
-                  <PopoverDescription>Add a task to the Planned column.</PopoverDescription>
-                </PopoverHeader>
-                <form onSubmit={handleCreateTask} className="mt-3 space-y-2">
-                  <Input
-                    placeholder="Task name"
-                    value={newTaskName}
-                    onChange={(e) => setNewTaskName(e.target.value)}
-                    disabled={isPending}
-                  />
-                  <Textarea
-                    placeholder="Task description"
-                    value={newTaskDescription}
-                    onChange={(e) => setNewTaskDescription(e.target.value)}
-                    disabled={isPending}
-                    rows={3}
-                    className="resize-none"
-                  />
-                  <CategoryPickerCreator
-                    categories={categories}
-                    selectedCategoryId={newTaskCategoryId}
-                    onSelectedCategoryIdChange={setNewTaskCategoryId}
-                    newCategoryName={newTaskCategoryName}
-                    onNewCategoryNameChange={setNewTaskCategoryName}
-                    disabled={isPending}
-                  />
-                  <div className="flex justify-end gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsCreateOpen(false)}
-                      disabled={isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" size="sm" disabled={isPending}>
-                      {isPending ? "Saving..." : "Create"}
-                    </Button>
-                  </div>
-                </form>
-              </PopoverContent>
-            </Popover>
           </div>
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Filter by category</p>
@@ -842,9 +789,79 @@ export default function KanbanTasks({
                         />
                         <span>{column.name}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {taskCountByColumn[column.id]}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          {taskCountByColumn[column.id]}
+                        </span>
+                        <Popover
+                          open={createTaskColumn === column.id}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setCreateTaskColumn(column.id);
+                              return;
+                            }
+                            setCreateTaskColumn(null);
+                          }}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="outline"
+                              aria-label={`Create task in ${column.name}`}
+                              disabled={isPending || !selectedDomain}
+                            >
+                              <Plus className="size-3.5" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-96">
+                            <PopoverHeader>
+                              <PopoverTitle>Create Task</PopoverTitle>
+                              <PopoverDescription>
+                                Add a task to the {column.name} column.
+                              </PopoverDescription>
+                            </PopoverHeader>
+                            <form onSubmit={handleCreateTask} className="mt-3 space-y-2">
+                              <Input
+                                placeholder="Task name"
+                                value={newTaskName}
+                                onChange={(e) => setNewTaskName(e.target.value)}
+                                disabled={isPending}
+                              />
+                              <Textarea
+                                placeholder="Task description"
+                                value={newTaskDescription}
+                                onChange={(e) => setNewTaskDescription(e.target.value)}
+                                disabled={isPending}
+                                rows={3}
+                                className="resize-none"
+                              />
+                              <CategoryPickerCreator
+                                categories={categories}
+                                selectedCategoryId={newTaskCategoryId}
+                                onSelectedCategoryIdChange={setNewTaskCategoryId}
+                                newCategoryName={newTaskCategoryName}
+                                onNewCategoryNameChange={setNewTaskCategoryName}
+                                disabled={isPending}
+                              />
+                              <div className="flex justify-end gap-2 pt-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCreateTaskColumn(null)}
+                                  disabled={isPending}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button type="submit" size="sm" disabled={isPending}>
+                                  {isPending ? "Saving..." : "Create"}
+                                </Button>
+                              </div>
+                            </form>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   </KanbanHeader>
                   <KanbanCards id={column.id}>
