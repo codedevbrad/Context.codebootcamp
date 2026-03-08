@@ -35,6 +35,7 @@ import {
   updateProjectGanttDomainAction,
 } from "@/domains/projects/project/db";
 import { CategoryPickerCreator } from "@/domains/projects/gantt/_components/category-picker-creator";
+import { Textarea } from "@/components/ui/textarea";
 
 type ColumnId = "planned" | "in_progress" | "done";
 type Column = {
@@ -570,11 +571,13 @@ export default function KanbanTasks({
                   onChange={(e) => setNewDomainName(e.target.value)}
                   disabled={isPending}
                 />
-                <Input
+                <Textarea
                   placeholder="Domain description"
                   value={newDomainDescription}
                   onChange={(e) => setNewDomainDescription(e.target.value)}
                   disabled={isPending}
+                  rows={3}
+                  className="resize-none"
                 />
                 <div className="flex justify-end gap-2 pt-1">
                   <Button
@@ -683,11 +686,13 @@ export default function KanbanTasks({
                                   placeholder="Domain name"
                                   disabled={isPending}
                                 />
-                                <Input
+                                <Textarea
                                   value={editDomainDescription}
                                   onChange={(e) => setEditDomainDescription(e.target.value)}
                                   placeholder="Domain description"
                                   disabled={isPending}
+                                  rows={3}
+                                  className="resize-none"
                                 />
                                 <div className="flex justify-end gap-2 pt-1">
                                   <Button
@@ -759,11 +764,13 @@ export default function KanbanTasks({
                     onChange={(e) => setNewTaskName(e.target.value)}
                     disabled={isPending}
                   />
-                  <Input
+                  <Textarea
                     placeholder="Task description"
                     value={newTaskDescription}
                     onChange={(e) => setNewTaskDescription(e.target.value)}
                     disabled={isPending}
+                    rows={3}
+                    className="resize-none"
                   />
                   <CategoryPickerCreator
                     categories={categories}
@@ -915,7 +922,7 @@ export default function KanbanTasks({
                                         disabled={isPending}
                                         placeholder="Task name"
                                       />
-                                      <Input
+                                      <Textarea
                                         value={editingTask.description}
                                         onChange={(e) =>
                                           setEditingTask((prev) =>
@@ -924,6 +931,8 @@ export default function KanbanTasks({
                                         }
                                         disabled={isPending}
                                         placeholder="Task description"
+                                        rows={3}
+                                        className="resize-none"
                                       />
                                       <CategoryPickerCreator
                                         categories={categories}
