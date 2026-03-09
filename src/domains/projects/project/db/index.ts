@@ -331,6 +331,121 @@ export async function createProjectContextAction(
   }
 }
 
+export async function updateProjectContextAction(
+  projectId: string,
+  contextId: string,
+  name: string,
+  description: string
+): Promise<ActionResult<ProjectContextListItem>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+
+  if (!trimmedName) {
+    return { success: false, error: "Context name is required" };
+  }
+
+  if (!trimmedDescription) {
+    return { success: false, error: "Context description is required" };
+  }
+
+  try {
+    const existingProject = await getProjectOwnership(projectId, userId);
+
+    if (!existingProject) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existingContext = await prisma.context.findFirst({
+      where: {
+        id: contextId,
+        userId,
+        projects: {
+          some: { id: projectId },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!existingContext) {
+      return { success: false, error: "Context not found" };
+    }
+
+    const updatedContext = await prisma.context.update({
+      where: { id: contextId },
+      data: {
+        name: trimmedName,
+        description: trimmedDescription,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        contextGroupId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return { success: true, data: updatedContext };
+  } catch (error) {
+    console.error("Error updating project context:", error);
+    return { success: false, error: "Failed to update context" };
+  }
+}
+
+export async function deleteProjectContextAction(
+  projectId: string,
+  contextId: string
+): Promise<ActionResult<{ id: string }>> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { success: false, error: "You must be signed in" };
+  }
+
+  try {
+    const existingProject = await getProjectOwnership(projectId, userId);
+
+    if (!existingProject) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existingContext = await prisma.context.findFirst({
+      where: {
+        id: contextId,
+        userId,
+        projects: {
+          some: { id: projectId },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!existingContext) {
+      return { success: false, error: "Context not found" };
+    }
+
+    await prisma.context.update({
+      where: { id: contextId },
+      data: {
+        projects: {
+          disconnect: { id: projectId },
+        },
+      },
+      select: { id: true },
+    });
+
+    return { success: true, data: { id: contextId } };
+  } catch (error) {
+    console.error("Error deleting project context link:", error);
+    return { success: false, error: "Failed to delete context" };
+  }
+}
+
 export async function updateProjectAction(
   projectId: string,
   name: string,

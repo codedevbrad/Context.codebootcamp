@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProjectById, getProjectContexts } from "@/domains/projects/project/db";
+import { ProjectContextsList } from "@/app/(project)/my/project/[projectid]/contexts/_components/project-contexts-list";
 
 export const dynamic = "force-dynamic";
 
@@ -27,32 +27,7 @@ export default async function ProjectContextsPage({
         <p className="text-muted-foreground">{project.description}</p>
       </div>
 
-      <section className="rounded-md border p-4">
-        <h2 className="text-lg font-medium">Contexts</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Contexts linked to this project.
-        </p>
-
-        {contexts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No contexts linked yet. Add one from the project sidebar.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-2">
-            {contexts.map((context) => (
-              <li key={context.id} className="rounded border p-2">
-                <Link
-                  href={`/my/project/${project.id}/contexts/context/${context.id}`}
-                  className="block"
-                >
-                  <p className="font-medium">{context.name}</p>
-                  <p className="text-sm text-muted-foreground">{context.description}</p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ProjectContextsList projectId={project.id} initialContexts={contexts} />
     </div>
   );
 }

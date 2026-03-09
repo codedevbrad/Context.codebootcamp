@@ -150,7 +150,7 @@ function ProjectContextsAccordion({ projectId, pathname }: ProjectFilesAccordion
       setNewName("");
       setNewDescription("");
       setIsCreateOpen(false);
-      router.push(`/my/context/${createdContext.id}`);
+      router.push(`/my/project/${projectId}/contexts/context/${createdContext.id}`);
       router.refresh();
     });
   };

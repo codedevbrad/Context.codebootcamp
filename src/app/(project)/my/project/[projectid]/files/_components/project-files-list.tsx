@@ -196,13 +196,14 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
             const isEditingThis = editingId === writing.id;
 
             return (
-              <li key={writing.id} className="group rounded-lg border p-2">
+              <li key={writing.id} className="group rounded-xl border p-2">
+                
                 <div className="flex items-start gap-2">
                   <Link
                     href={`/my/project/${projectId}/files/${writing.id}`}
                     className="min-w-0 flex-1 rounded px-2 py-1"
                   >
-                    <p className="truncate font-medium">{writing.title}</p>
+                    <p className=" font-medium">{writing.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       Updated {new Date(writing.updatedAt).toLocaleString()}
                     </p>

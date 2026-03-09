@@ -3,7 +3,9 @@
 import useSWR from "swr";
 import {
   createProjectContextAction,
+  deleteProjectContextAction,
   getProjectContexts,
+  updateProjectContextAction,
   type ProjectContextListItem,
 } from "@/domains/projects/project/db";
 
@@ -33,11 +35,39 @@ export function useProjectContexts(
     return result;
   };
 
+  const updateContext = async (contextId: string, name: string, description: string) => {
+    const result = await updateProjectContextAction(projectId, contextId, name, description);
+
+    if (result.success && result.data) {
+      const updated = result.data;
+      await mutate(
+        (prev) => (prev ?? []).map((context) => (context.id === contextId ? updated : context)),
+        { revalidate: false }
+      );
+    }
+
+    return result;
+  };
+
+  const deleteContext = async (contextId: string) => {
+    const result = await deleteProjectContextAction(projectId, contextId);
+
+    if (result.success) {
+      await mutate((prev) => (prev ?? []).filter((context) => context.id !== contextId), {
+        revalidate: false,
+      });
+    }
+
+    return result;
+  };
+
   return {
     contexts,
     error,
     isLoading,
     mutate,
     createContext,
+    updateContext,
+    deleteContext,
   };
 }
