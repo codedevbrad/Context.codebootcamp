@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useProjectContexts } from "@/domains/projects/project/_swr/useProjectContexts";
+import { useProjectTaskCount } from "@/domains/projects/project/_swr/useProjectTaskCount";
 import { useProjects } from "@/domains/projects/project/_swr/useProjects";
 import type { ProjectListItem } from "@/domains/projects/project/db";
 import { useProjectWritings } from "@/domains/projects/writing/_swr/useProjectWritings";
@@ -250,6 +251,25 @@ function ProjectContextsAccordion({ projectId, pathname }: ProjectFilesAccordion
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+  );
+}
+
+function ProjectTasksLink({ projectId, pathname }: ProjectFilesAccordionProps) {
+  const { taskCount, isLoading } = useProjectTaskCount(projectId);
+  const tasksHref = `/my/project/${projectId}/tasks`;
+  const isActive = pathname === tasksHref || pathname.startsWith(`${tasksHref}/`);
+
+  return (
+    <div className="mt-4">
+      <Link
+        href={tasksHref}
+        className={`block rounded p-2 py-1  ${
+          isActive ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
+        }`}
+      >
+        <h3 className="text-xs text-gray-600">Tasks [{isLoading ? "..." : taskCount}]</h3>
+      </Link>
+    </div>
   );
 }
 
@@ -583,8 +603,10 @@ export function ProjectSidebar({
                   </div>
                   {!isCollapsed ? (
                     <>
+                      <ProjectTasksLink projectId={project.id} pathname={pathname} />
                       <ProjectFilesAccordion projectId={project.id} pathname={pathname} />
                       <ProjectContextsAccordion projectId={project.id} pathname={pathname} />
+                      
                     </>
                   ) : null}
                 </div>

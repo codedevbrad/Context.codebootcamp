@@ -232,6 +232,31 @@ export async function getProjectContexts(
   });
 }
 
+export async function getProjectTaskCount(projectId: string): Promise<number> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return 0;
+  }
+
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      userId,
+    },
+    select: { id: true },
+  });
+
+  if (!project) {
+    return 0;
+  }
+
+  return prisma.ganttTasks.count({
+    where: {
+      projectId,
+    },
+  });
+}
+
 export async function createProjectAction(
   name: string,
   description: string
