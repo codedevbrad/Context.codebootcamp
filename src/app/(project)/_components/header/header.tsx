@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { RecentActivityPopover } from "./recent-activity/recent-activity-popover"
 import { useRecentActivity } from "./recent-activity/use-recent-activity"
 import { HeaderSearch } from "./search/header-search"
+import { ZenSpaceButton } from "./zen-space-button"
 
 export function Header() {
   const pathname = usePathname()
@@ -29,6 +30,7 @@ export function Header() {
             <Link href="/my/about">About</Link>
             <Link href="/my/inspiration">Inspiration</Link>
           </nav>
+          <ZenSpaceButton />
           <RecentActivityPopover items={recentActivity} />
           <nav className="flex items-center space-x-2 text-sm font-medium">
             <Profile />

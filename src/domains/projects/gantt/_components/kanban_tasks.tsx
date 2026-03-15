@@ -7,7 +7,8 @@ import {
   KanbanHeader,
   KanbanProvider,
 } from "@/components/kibo-ui/kanban";
-import { Clipboard, Pencil, Plus, Trash2 } from "lucide-react";
+import { Clipboard, FolderOpen, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -889,6 +890,21 @@ export default function KanbanTasks({
                                 disabled={isPending}
                               >
                                 <Clipboard className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="outline"
+                                aria-label={`Open file for ${task.name}`}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                asChild
+                              >
+                                <Link
+                                  href={`/my/project/${projectId}/tasks/open/${task.id}`}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                  <FolderOpen className="size-3.5" />
+                                </Link>
                               </Button>
                               <Popover
                                 open={editingTask?.id === task.id}

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ProjectSidebar } from "@/domains/projects/project/_components/project-sidebar";
+import { ProjectSidebar } from "@/domains/projects/projects/_components/projectSidebar/project-sidebar";
 import type { ProjectListItem } from "@/domains/projects/project/db";
 
 type SidebarTabsProps = {

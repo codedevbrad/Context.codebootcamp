@@ -26,6 +26,7 @@ type AppBreadcrumbProps = {
 const STATIC_LABELS: Record<string, string> = {
   my: "My",
   project: "Projects",
+  projects: "Projects",
   group: "Groups",
   context: "Contexts",
   files: "Files",
@@ -35,6 +36,7 @@ const STATIC_LABELS: Record<string, string> = {
 
 const DYNAMIC_LABEL_BY_PARENT: Record<string, string> = {
   project: "Project",
+  projects: "Project",
   group: "Group",
   context: "Context",
   files: "File",
@@ -48,6 +50,18 @@ function formatSegment(segment: string) {
     .join(" ");
 }
 
+function buildHrefForSegment(segments: string[], index: number) {
+  const segment = segments[index];
+  const defaultHref = `/${segments.slice(0, index + 1).join("/")}`;
+
+  // Route uses singular "project" but breadcrumb target should be project list.
+  if (segment === "project") {
+    return segments[0] === "my" ? "/my/projects" : "/projects";
+  }
+
+  return defaultHref;
+}
+
 function buildItemsFromPath(pathname: string): AppBreadcrumbItem[] {
   const segments = pathname.split("/").filter(Boolean);
 
@@ -58,7 +72,7 @@ function buildItemsFromPath(pathname: string): AppBreadcrumbItem[] {
       STATIC_LABELS[segment] ||
       formatSegment(segment);
 
-    const href = `/${segments.slice(0, index + 1).join("/")}`;
+    const href = buildHrefForSegment(segments, index);
     const isLast = index === segments.length - 1;
 
     return {

@@ -20,29 +20,7 @@ import js from "highlight.js/lib/languages/javascript";
 import ts from "highlight.js/lib/languages/typescript";
 import html from "highlight.js/lib/languages/xml";
 import "highlight.js/styles/github-dark.css";
-
-import {
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  Code,
-  Undo,
-  Redo,
-  Quote,
-  Minus,
-  Highlighter,
-  CheckSquare,
-  LinkIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-} from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { HeadingDropdownMenu } from "./extended/tiptap-ui/heading-dropdown-menu";
-import { cn } from "@/lib/utils";
+import { TipTapToolbar } from "./toolbar";
 
 
 const lowlight = createLowlight({ javascript: js, typescript: ts, html });
@@ -185,115 +163,18 @@ export default function TipTapEditor({
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       {!readOnly && (
-        <div className="w-full px-6 sm:px-10 pt-4 pb-2">
-          <div className="mx-auto max-w-4xl overflow-x-auto">
-            <div className="w-max min-w-full bg-white/80 backdrop-blur-md border border-border shadow-md rounded-full px-3 py-2 flex flex-nowrap items-center gap-1 transition-all hover:shadow-lg">
-
-        {/* Headings */}
-        <HeadingDropdownMenu
+        <TipTapToolbar
           editor={editor}
-          levels={[1, 2, 3, 4]}
-          hideWhenUnavailable={false}
-          portal={false}
+          onSetLink={setLink}
+          showSaveStatus={showSaveStatus}
+          saveMessage={saveMessage}
         />
-
-        {/* Formatting */}
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleBold().run()}
-          icon={<Bold />}
-          active={editor.isActive("bold")}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleItalic().run()}
-          icon={<Italic />}
-          active={editor.isActive("italic")}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleHighlight().run()}
-          icon={<Highlighter />}
-          active={editor.isActive("highlight")}
-        />
-
-        {/* Lists */}
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleBulletList().run()}
-          icon={<List />}
-          active={editor.isActive("bulletList")}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleOrderedList().run()}
-          icon={<ListOrdered />}
-          active={editor.isActive("orderedList")}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleTaskList().run()}
-          icon={<CheckSquare />}
-          active={editor.isActive("taskList")}
-        />
-
-        {/* Blocks */}
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleBlockquote().run()}
-          icon={<Quote />}
-          active={editor.isActive("blockquote")}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().toggleCodeBlock().run()}
-          icon={<Code />}
-          active={editor.isActive("codeBlock")}
-        />
-        <ToolbarButton cmd={setLink} icon={<LinkIcon />} />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().setHorizontalRule().run()}
-          icon={<Minus />}
-        />
-
-        {/* Alignment */}
-        <ToolbarButton
-          cmd={() => editor.chain().focus().setTextAlign("left").run()}
-          icon={<AlignLeft />}
-          active={editor.isActive({ textAlign: "left" })}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().setTextAlign("center").run()}
-          icon={<AlignCenter />}
-          active={editor.isActive({ textAlign: "center" })}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().setTextAlign("right").run()}
-          icon={<AlignRight />}
-          active={editor.isActive({ textAlign: "right" })}
-        />
-        <ToolbarButton
-          cmd={() => editor.chain().focus().setTextAlign("justify").run()}
-          icon={<AlignJustify />}
-          active={editor.isActive({ textAlign: "justify" })}
-        />
-
-        {/* Undo / Redo */}
-        <div className="ml-2 flex gap-1 border-l pl-2 border-border">
-          <ToolbarButton
-            cmd={() => editor.chain().focus().undo().run()}
-            icon={<Undo />}
-          />
-          <ToolbarButton
-            cmd={() => editor.chain().focus().redo().run()}
-            icon={<Redo />}
-          />
-        </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Editor */}
-      <div className="w-full flex-1 min-h-0 px-6 sm:px-10 py-3 overflow-hidden">
-        {showSaveStatus ? (
-          <div className="mb-2 flex justify-end">
-            <span className="text-xs text-muted-foreground">{saveMessage}</span>
-          </div>
-        ) : null}
-        <div className="mx-auto h-full min-h-0 w-full max-w-4xl overflow-y-auto">
+      <div className="w-full flex-1 min-h-0  py-3 overflow-hidden">
+      
+        <div className="w-full h-full min-h-0 overflow-y-auto px-5 pl-8">
           <EditorContent
             editor={editor}
             className="prose prose-lg dark:prose-invert max-w-none focus:outline-none"
@@ -367,31 +248,3 @@ export default function TipTapEditor({
   );
 }
 
-/* --- ToolbarButton --- */
-function ToolbarButton({
-  cmd,
-  icon,
-  active,
-}: {
-  cmd: () => void;
-  icon: React.ReactNode;
-  active?: boolean;
-}) {
-  return (
-    <Button
-      size="icon"
-      variant="ghost"
-      onClick={cmd}
-      className={cn(
-        "h-8 w-8 transition-all hover:bg-blue-50 hover:text-blue-600",
-        active && "bg-blue-100 text-blue-700 shadow-sm"
-      )}
-      style={{
-        borderRadius: "8px",
-        padding: "4px",
-      }}
-    >
-      {icon}
-    </Button>
-  );
-}
