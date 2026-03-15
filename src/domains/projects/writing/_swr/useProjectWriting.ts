@@ -2,9 +2,14 @@
 
 import useSWR from "swr";
 import {
+  addProjectWritingPageAction,
+  deleteProjectWritingPageAction,
   deleteProjectWritingAction,
   getProjectWritingById,
+  renameProjectWritingPageAction,
+  updateProjectWritingActivePageAction,
   updateProjectWritingContentAction,
+  updateProjectWritingPageContentAction,
   updateProjectWritingTitleAction,
   type ProjectWritingDetails,
 } from "@/domains/projects/writing/db";
@@ -33,6 +38,21 @@ export function useProjectWriting(
 
   const writing = data ?? null;
 
+  const mutateWritingContent = async (payload: { content: unknown; updatedAt: Date }) => {
+    if (!writing) {
+      return;
+    }
+
+    await mutate(
+      {
+        ...writing,
+        content: payload.content,
+        updatedAt: payload.updatedAt,
+      },
+      { revalidate: false }
+    );
+  };
+
   const updateWritingTitle = async (title: string) => {
     const result = await updateProjectWritingTitleAction(projectId, writingId, title);
 
@@ -58,15 +78,67 @@ export function useProjectWriting(
       sanitizedContent
     );
 
-    if (result.success && result.data && writing) {
-      await mutate(
-        {
-          ...writing,
-          content: result.data.content,
-          updatedAt: result.data.updatedAt,
-        },
-        { revalidate: false }
-      );
+    if (result.success && result.data) {
+      await mutateWritingContent(result.data);
+    }
+
+    return result;
+  };
+
+  const updatePageContent = async (pageId: string, content: unknown) => {
+    const sanitizedContent = sanitizeJsonContent(content);
+    if (!sanitizedContent || typeof sanitizedContent !== "object" || Array.isArray(sanitizedContent)) {
+      return {
+        success: false as const,
+        error: "Writing content must be a JSON object",
+      };
+    }
+
+    const result = await updateProjectWritingPageContentAction(
+      projectId,
+      writingId,
+      pageId,
+      sanitizedContent
+    );
+
+    if (result.success && result.data) {
+      await mutateWritingContent(result.data);
+    }
+
+    return result;
+  };
+
+  const setActivePage = async (pageId: string) => {
+    const result = await updateProjectWritingActivePageAction(projectId, writingId, pageId);
+    if (result.success && result.data) {
+      await mutateWritingContent(result.data);
+    }
+
+    return result;
+  };
+
+  const addPage = async (title?: string) => {
+    const result = await addProjectWritingPageAction(projectId, writingId, title);
+    if (result.success && result.data) {
+      await mutateWritingContent(result.data);
+    }
+
+    return result;
+  };
+
+  const renamePage = async (pageId: string, title: string) => {
+    const result = await renameProjectWritingPageAction(projectId, writingId, pageId, title);
+    if (result.success && result.data) {
+      await mutateWritingContent(result.data);
+    }
+
+    return result;
+  };
+
+  const deletePage = async (pageId: string) => {
+    const result = await deleteProjectWritingPageAction(projectId, writingId, pageId);
+    if (result.success && result.data) {
+      await mutateWritingContent(result.data);
     }
 
     return result;
@@ -84,6 +156,11 @@ export function useProjectWriting(
     mutate,
     updateWritingTitle,
     updateWritingContent,
+    updatePageContent,
+    setActivePage,
+    addPage,
+    renamePage,
+    deletePage,
     deleteWriting,
   };
 }

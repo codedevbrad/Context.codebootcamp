@@ -197,13 +197,21 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
 
             return (
               <li key={writing.id} className="group rounded-xl border p-2">
-                
                 <div className="flex items-start gap-2">
                   <Link
                     href={`/my/project/${projectId}/files/${writing.id}`}
                     className="min-w-0 flex-1 rounded px-2 py-1"
                   >
-                    <p className=" font-medium">{writing.title}</p>
+                    <p className="font-medium">{writing.title}</p>
+                    {writing.ganttTask ? (
+                      <p className="mt-1">
+                        <span className="inline-flex max-w-full items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          <span className="shrink-0">Task</span>
+                          <span className="mx-1 text-blue-300">|</span>
+                          <span className="truncate">{writing.ganttTask.name}</span>
+                        </span>
+                      </p>
+                    ) : null}
                     <p className="truncate text-xs text-muted-foreground">
                       Updated {new Date(writing.updatedAt).toLocaleString()}
                     </p>
