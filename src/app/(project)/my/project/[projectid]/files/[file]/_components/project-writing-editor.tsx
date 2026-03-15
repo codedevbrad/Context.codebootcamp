@@ -38,14 +38,14 @@ function normalizeTiptapContent(content: unknown) {
 }
 
 type ProjectWritingEditorProps = {
-  projectId: string;
-  writingId: string;
+  projectSlug: string;
+  writingRef: string;
   initialWriting: ProjectWritingDetails;
 };
 
 export function ProjectWritingEditor({
-  projectId,
-  writingId,
+  projectSlug,
+  writingRef,
   initialWriting,
 }: ProjectWritingEditorProps) {
   const router = useRouter();
@@ -58,7 +58,7 @@ export function ProjectWritingEditor({
     deletePage,
     updatePageContent,
     deleteWriting: removeWriting,
-  } = useProjectWriting(projectId, writingId, initialWriting);
+  } = useProjectWriting(projectSlug, writingRef, initialWriting);
   const [error, setError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [pageToDeleteId, setPageToDeleteId] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export function ProjectWritingEditor({
       }
 
       setIsDeleting(false);
-      router.push(`/my/project/${projectId}/files`);
+      router.push(`/my/project/${projectSlug}/files`);
       router.refresh();
     });
   };

@@ -10,7 +10,7 @@ export default async function OpenTaskFilePage({
 }) {
   const { projectid, taskid } = await params;
   const result = await getOrCreateTaskWritingAction({
-    projectId: projectid,
+    projectRef: projectid,
     taskId: taskid,
   });
 
@@ -18,5 +18,5 @@ export default async function OpenTaskFilePage({
     notFound();
   }
 
-  redirect(`/my/project/${projectid}/files/${result.data.writingId}`);
+  redirect(`/my/project/${projectid}/files/${result.data.writingSlug}`);
 }

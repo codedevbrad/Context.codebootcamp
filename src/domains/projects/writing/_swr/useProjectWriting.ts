@@ -14,8 +14,8 @@ import {
   type ProjectWritingDetails,
 } from "@/domains/projects/writing/db";
 
-const fetcher = async ([, projectId, writingId]: readonly [string, string, string]) =>
-  getProjectWritingById(projectId, writingId);
+const fetcher = async ([, projectRef, writingRef]: readonly [string, string, string]) =>
+  getProjectWritingById(projectRef, writingRef);
 
 function sanitizeJsonContent(content: unknown) {
   try {
@@ -26,11 +26,11 @@ function sanitizeJsonContent(content: unknown) {
 }
 
 export function useProjectWriting(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   initialData?: ProjectWritingDetails | null
 ) {
-  const key = projectId && writingId ? (["project-writing", projectId, writingId] as const) : null;
+  const key = projectRef && writingRef ? (["project-writing", projectRef, writingRef] as const) : null;
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     fallbackData: initialData,
@@ -54,7 +54,7 @@ export function useProjectWriting(
   };
 
   const updateWritingTitle = async (title: string) => {
-    const result = await updateProjectWritingTitleAction(projectId, writingId, title);
+    const result = await updateProjectWritingTitleAction(projectRef, writingRef, title);
 
     if (result.success && result.data) {
       await mutate(result.data, { revalidate: false });
@@ -73,8 +73,8 @@ export function useProjectWriting(
     }
 
     const result = await updateProjectWritingContentAction(
-      projectId,
-      writingId,
+      projectRef,
+      writingRef,
       sanitizedContent
     );
 
@@ -95,8 +95,8 @@ export function useProjectWriting(
     }
 
     const result = await updateProjectWritingPageContentAction(
-      projectId,
-      writingId,
+      projectRef,
+      writingRef,
       pageId,
       sanitizedContent
     );
@@ -109,7 +109,7 @@ export function useProjectWriting(
   };
 
   const setActivePage = async (pageId: string) => {
-    const result = await updateProjectWritingActivePageAction(projectId, writingId, pageId);
+    const result = await updateProjectWritingActivePageAction(projectRef, writingRef, pageId);
     if (result.success && result.data) {
       await mutateWritingContent(result.data);
     }
@@ -118,7 +118,7 @@ export function useProjectWriting(
   };
 
   const addPage = async (title?: string) => {
-    const result = await addProjectWritingPageAction(projectId, writingId, title);
+    const result = await addProjectWritingPageAction(projectRef, writingRef, title);
     if (result.success && result.data) {
       await mutateWritingContent(result.data);
     }
@@ -127,7 +127,7 @@ export function useProjectWriting(
   };
 
   const renamePage = async (pageId: string, title: string) => {
-    const result = await renameProjectWritingPageAction(projectId, writingId, pageId, title);
+    const result = await renameProjectWritingPageAction(projectRef, writingRef, pageId, title);
     if (result.success && result.data) {
       await mutateWritingContent(result.data);
     }
@@ -136,7 +136,7 @@ export function useProjectWriting(
   };
 
   const deletePage = async (pageId: string) => {
-    const result = await deleteProjectWritingPageAction(projectId, writingId, pageId);
+    const result = await deleteProjectWritingPageAction(projectRef, writingRef, pageId);
     if (result.success && result.data) {
       await mutateWritingContent(result.data);
     }
@@ -145,7 +145,7 @@ export function useProjectWriting(
   };
 
   const deleteWriting = async () => {
-    const result = await deleteProjectWritingAction(projectId, writingId);
+    const result = await deleteProjectWritingAction(projectRef, writingRef);
     return result;
   };
 

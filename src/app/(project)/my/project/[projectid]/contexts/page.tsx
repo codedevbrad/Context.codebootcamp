@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getProjectById, getProjectContexts } from "@/domains/projects/project/db";
+import { getProjectBySlug, getProjectContexts } from "@/domains/projects/project/db";
 import { ProjectContextsList } from "@/app/(project)/my/project/[projectid]/contexts/_components/project-contexts-list";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function ProjectContextsPage({
   const { projectid } = await params;
 
   const [project, contexts] = await Promise.all([
-    getProjectById(projectid),
+    getProjectBySlug(projectid),
     getProjectContexts(projectid),
   ]);
 
@@ -27,7 +27,7 @@ export default async function ProjectContextsPage({
         <p className="text-muted-foreground">{project.description}</p>
       </div>
 
-      <ProjectContextsList projectId={project.id} initialContexts={contexts} />
+      <ProjectContextsList projectSlug={project.slug} initialContexts={contexts} />
     </div>
   );
 }

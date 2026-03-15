@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getProjectById } from "@/domains/projects/project/db";
+import { getProjectBySlug } from "@/domains/projects/project/db";
 import { getProjectWritingById } from "@/domains/projects/writing/db";
 import { ProjectWritingEditor } from "@/app/(project)/my/project/[projectid]/files/[file]/_components/project-writing-editor";
 import Link from "next/link";
@@ -16,7 +16,7 @@ export default async function ProjectFilePage({
   const { projectid, file } = await params;
 
   const [project, writing] = await Promise.all([
-    getProjectById(projectid),
+    getProjectBySlug(projectid),
     getProjectWritingById(projectid, file),
   ]);
 
@@ -29,7 +29,7 @@ export default async function ProjectFilePage({
       <div className="shrink-0 space-y-2 flex flex-row gap-3 items-center">
 
         <div>
-          <Link href={`/my/project/${project.id}/files`}>
+          <Link href={`/my/project/${project.slug}/files`}>
             <GoBackButton variant="outline"  />
           </Link>
         </div>
@@ -40,7 +40,7 @@ export default async function ProjectFilePage({
           </div>
           {writing.ganttTask ? (
             <Link
-              href={`/my/project/${project.id}/tasks`}
+              href={`/my/project/${project.slug}/tasks`}
               className="w-full max-w-sm rounded-md border p-2 hover:bg-accent/30"
             >
               <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -60,8 +60,8 @@ export default async function ProjectFilePage({
 
       <div className="flex-1 min-h-0 overflow-hidden">
         <ProjectWritingEditor
-          projectId={project.id}
-          writingId={writing.id}
+          projectSlug={project.slug}
+          writingRef={writing.slug}
           initialWriting={writing}
         />
       </div>

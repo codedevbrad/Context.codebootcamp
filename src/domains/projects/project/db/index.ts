@@ -3,9 +3,18 @@
 import { auth } from "@/../auth";
 import { prisma } from "@/lib/db";
 import type { ActionResult } from "@/domains/contexts/db";
+import {
+  buildContextSlug,
+  buildProjectSlug,
+  normalizeContextSlugRouteRef,
+  normalizeProjectSlugRouteRef,
+  slugifyContextName,
+  slugifyProjectName,
+} from "@/lib/slug";
 
 export type ProjectListItem = {
   id: string;
+  slug: string;
   name: string;
   description: string;
   createdAt: Date;
@@ -14,6 +23,7 @@ export type ProjectListItem = {
 
 export type ProjectContextListItem = {
   id: string;
+  slug: string;
   name: string;
   description: string;
   contextGroupId: string | null;
@@ -102,23 +112,105 @@ async function getAuthUserId() {
   return user?.id ?? null;
 }
 
+async function resolveProjectIdByRef(params: {
+  projectRef: string;
+  userId: string;
+}): Promise<string | null> {
+  const normalizedSlug = normalizeProjectSlugRouteRef(params.projectRef);
+  const project = await prisma.project.findFirst({
+    where: {
+      userId: params.userId,
+      OR: [{ slug: normalizedSlug }, { id: params.projectRef }],
+    },
+    select: { id: true },
+  });
+
+  return project?.id ?? null;
+}
+
+async function getProjectOwnership(projectRef: string, userId: string) {
+  const projectId = await resolveProjectIdByRef({
+    projectRef,
+    userId,
+  });
+  if (!projectId) {
+    return null;
+  }
+
+  return { id: projectId };
+}
+
+type ContextRecordWithNullableSlug = {
+  id: string;
+  slug: string | null;
+  name: string;
+  description: string;
+  contextGroupId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function normalizeProjectContextRecord<T extends ContextRecordWithNullableSlug>(
+  context: T
+): ProjectContextListItem {
+  return {
+    id: context.id,
+    slug: context.slug ?? context.id,
+    name: context.name,
+    description: context.description,
+    contextGroupId: context.contextGroupId,
+    createdAt: context.createdAt,
+    updatedAt: context.updatedAt,
+  };
+}
+
+async function resolveContextIdByRef(params: {
+  projectId: string;
+  userId: string;
+  contextRef: string;
+}): Promise<string | null> {
+  const normalizedSlug = normalizeContextSlugRouteRef(params.contextRef);
+  const context = await prisma.context.findFirst({
+    where: {
+      userId: params.userId,
+      projects: {
+        some: { id: params.projectId },
+      },
+      OR: [{ slug: normalizedSlug }, { id: params.contextRef }],
+    },
+    select: { id: true },
+  });
+
+  return context?.id ?? null;
+}
+
+function normalizeProjectRecord<T extends { id: string; slug: string | null }>(project: T) {
+  return {
+    ...project,
+    slug: project.slug ?? project.id,
+  };
+}
+
 export async function getUserProjects(): Promise<ProjectListItem[]> {
   const userId = await getAuthUserId();
   if (!userId) {
     return [];
   }
 
-  return prisma.project.findMany({
+  const projects = await prisma.project.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
+      slug: true,
       name: true,
       description: true,
       createdAt: true,
       updatedAt: true,
     },
   });
+
+  return projects.map((project) => normalizeProjectRecord(project));
 }
 
 export async function getProjectById(projectId: string): Promise<ProjectDetails | null> {
@@ -135,6 +227,7 @@ export async function getProjectById(projectId: string): Promise<ProjectDetails 
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         dbmodel: true,
@@ -188,32 +281,103 @@ export async function getProjectById(projectId: string): Promise<ProjectDetails 
   }
 
   return {
-    ...project,
+    ...normalizeProjectRecord(project),
+    categories,
+  };
+}
+
+export async function getProjectBySlug(projectSlug: string): Promise<ProjectDetails | null> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return null;
+  }
+
+  const normalizedSlug = normalizeProjectSlugRouteRef(projectSlug);
+  const [project, categories] = await Promise.all([
+    prisma.project.findFirst({
+      where: {
+        slug: normalizedSlug,
+        userId,
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        dbmodel: true,
+        createdAt: true,
+        updatedAt: true,
+        projectGantdomains: {
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            createdAt: true,
+            updatedAt: true,
+            tasks: {
+              orderBy: [{ position: "asc" }, { updatedAt: "desc" }],
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pageData: true,
+                position: true,
+                ganttcolumnType: true,
+                categoryId: true,
+                projectGantdomainsId: true,
+                createdAt: true,
+                updatedAt: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.category.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+  ]);
+
+  if (!project) {
+    return null;
+  }
+
+  return {
+    ...normalizeProjectRecord(project),
     categories,
   };
 }
 
 export async function getProjectContexts(
-  projectId: string
+  projectRef: string
 ): Promise<ProjectContextListItem[]> {
   const userId = await getAuthUserId();
   if (!userId) {
     return [];
   }
 
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      userId,
-    },
-    select: { id: true },
+  const projectId = await resolveProjectIdByRef({
+    projectRef,
+    userId,
   });
 
-  if (!project) {
+  if (!projectId) {
     return [];
   }
 
-  return prisma.context.findMany({
+  const contexts = await prisma.context.findMany({
     where: {
       userId,
       projects: {
@@ -223,6 +387,7 @@ export async function getProjectContexts(
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
+      slug: true,
       name: true,
       description: true,
       contextGroupId: true,
@@ -230,6 +395,8 @@ export async function getProjectContexts(
       updatedAt: true,
     },
   });
+
+  return contexts.map((context) => normalizeProjectContextRecord(context));
 }
 
 export async function getProjectTaskCount(projectId: string): Promise<number> {
@@ -238,21 +405,18 @@ export async function getProjectTaskCount(projectId: string): Promise<number> {
     return 0;
   }
 
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      userId,
-    },
-    select: { id: true },
+  const resolvedProjectId = await resolveProjectIdByRef({
+    projectRef: projectId,
+    userId,
   });
 
-  if (!project) {
+  if (!resolvedProjectId) {
     return 0;
   }
 
   return prisma.ganttTasks.count({
     where: {
-      projectId,
+      projectId: resolvedProjectId,
     },
   });
 }
@@ -278,15 +442,21 @@ export async function createProjectAction(
   }
 
   try {
-    const project = await prisma.project.create({
+    const provisionalSlug = `${slugifyProjectName(trimmedName)}-${Date.now().toString(36)}${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+
+    const createdProject = await prisma.project.create({
       data: {
         name: trimmedName,
         description: trimmedDescription,
+        slug: provisionalSlug,
         dbmodel: {},
         userId,
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         createdAt: true,
@@ -294,7 +464,24 @@ export async function createProjectAction(
       },
     });
 
-    return { success: true, data: project };
+    const expectedSlug = buildProjectSlug(trimmedName, createdProject.id);
+    const project =
+      createdProject.slug === expectedSlug
+        ? createdProject
+        : await prisma.project.update({
+            where: { id: createdProject.id },
+            data: { slug: expectedSlug },
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              description: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          });
+
+    return { success: true, data: normalizeProjectRecord(project) };
   } catch (error) {
     console.error("Error creating project:", error);
     return { success: false, error: "Failed to create project" };
@@ -302,7 +489,7 @@ export async function createProjectAction(
 }
 
 export async function createProjectContextAction(
-  projectId: string,
+  projectRef: string,
   name: string,
   description: string
 ): Promise<ActionResult<ProjectContextListItem>> {
@@ -323,24 +510,30 @@ export async function createProjectContextAction(
   }
 
   try {
-    const existingProject = await getProjectOwnership(projectId, userId);
+    const existingProject = await getProjectOwnership(projectRef, userId);
 
     if (!existingProject) {
       return { success: false, error: "Project not found" };
     }
 
-    const context = await prisma.context.create({
+    const provisionalSlug = `${slugifyContextName(trimmedName)}-${Date.now().toString(36)}${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+
+    const createdContext = await prisma.context.create({
       data: {
         name: trimmedName,
         description: trimmedDescription,
+        slug: provisionalSlug,
         content: {},
         userId,
         projects: {
-          connect: { id: projectId },
+          connect: { id: existingProject.id },
         },
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         contextGroupId: true,
@@ -349,7 +542,25 @@ export async function createProjectContextAction(
       },
     });
 
-    return { success: true, data: context };
+    const expectedSlug = buildContextSlug(trimmedName, createdContext.id);
+    const context =
+      createdContext.slug === expectedSlug
+        ? createdContext
+        : await prisma.context.update({
+            where: { id: createdContext.id },
+            data: { slug: expectedSlug },
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              description: true,
+              contextGroupId: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          });
+
+    return { success: true, data: normalizeProjectContextRecord(context) };
   } catch (error) {
     console.error("Error creating project context:", error);
     return { success: false, error: "Failed to create context" };
@@ -357,8 +568,8 @@ export async function createProjectContextAction(
 }
 
 export async function updateProjectContextAction(
-  projectId: string,
-  contextId: string,
+  projectRef: string,
+  contextRef: string,
   name: string,
   description: string
 ): Promise<ActionResult<ProjectContextListItem>> {
@@ -379,24 +590,18 @@ export async function updateProjectContextAction(
   }
 
   try {
-    const existingProject = await getProjectOwnership(projectId, userId);
+    const existingProject = await getProjectOwnership(projectRef, userId);
 
     if (!existingProject) {
       return { success: false, error: "Project not found" };
     }
 
-    const existingContext = await prisma.context.findFirst({
-      where: {
-        id: contextId,
-        userId,
-        projects: {
-          some: { id: projectId },
-        },
-      },
-      select: { id: true },
+    const contextId = await resolveContextIdByRef({
+      projectId: existingProject.id,
+      userId,
+      contextRef,
     });
-
-    if (!existingContext) {
+    if (!contextId) {
       return { success: false, error: "Context not found" };
     }
 
@@ -405,9 +610,11 @@ export async function updateProjectContextAction(
       data: {
         name: trimmedName,
         description: trimmedDescription,
+        slug: buildContextSlug(trimmedName, contextId),
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         contextGroupId: true,
@@ -416,7 +623,7 @@ export async function updateProjectContextAction(
       },
     });
 
-    return { success: true, data: updatedContext };
+    return { success: true, data: normalizeProjectContextRecord(updatedContext) };
   } catch (error) {
     console.error("Error updating project context:", error);
     return { success: false, error: "Failed to update context" };
@@ -424,8 +631,8 @@ export async function updateProjectContextAction(
 }
 
 export async function deleteProjectContextAction(
-  projectId: string,
-  contextId: string
+  projectRef: string,
+  contextRef: string
 ): Promise<ActionResult<{ id: string }>> {
   const userId = await getAuthUserId();
   if (!userId) {
@@ -433,24 +640,18 @@ export async function deleteProjectContextAction(
   }
 
   try {
-    const existingProject = await getProjectOwnership(projectId, userId);
+    const existingProject = await getProjectOwnership(projectRef, userId);
 
     if (!existingProject) {
       return { success: false, error: "Project not found" };
     }
 
-    const existingContext = await prisma.context.findFirst({
-      where: {
-        id: contextId,
-        userId,
-        projects: {
-          some: { id: projectId },
-        },
-      },
-      select: { id: true },
+    const contextId = await resolveContextIdByRef({
+      projectId: existingProject.id,
+      userId,
+      contextRef,
     });
-
-    if (!existingContext) {
+    if (!contextId) {
       return { success: false, error: "Context not found" };
     }
 
@@ -458,7 +659,7 @@ export async function deleteProjectContextAction(
       where: { id: contextId },
       data: {
         projects: {
-          disconnect: { id: projectId },
+          disconnect: { id: existingProject.id },
         },
       },
       select: { id: true },
@@ -472,7 +673,7 @@ export async function deleteProjectContextAction(
 }
 
 export async function updateProjectAction(
-  projectId: string,
+  projectRef: string,
   name: string,
   description: string
 ): Promise<ActionResult<ProjectListItem>> {
@@ -493,26 +694,22 @@ export async function updateProjectAction(
   }
 
   try {
-    const existing = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
-      select: { id: true },
-    });
+    const existing = await getProjectOwnership(projectRef, userId);
 
     if (!existing) {
       return { success: false, error: "Project not found" };
     }
 
     const project = await prisma.project.update({
-      where: { id: projectId },
+      where: { id: existing.id },
       data: {
         name: trimmedName,
         description: trimmedDescription,
+        slug: buildProjectSlug(trimmedName, existing.id),
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         createdAt: true,
@@ -520,7 +717,7 @@ export async function updateProjectAction(
       },
     });
 
-    return { success: true, data: project };
+    return { success: true, data: normalizeProjectRecord(project) };
   } catch (error) {
     console.error("Error updating project:", error);
     return { success: false, error: "Failed to update project" };
@@ -528,7 +725,7 @@ export async function updateProjectAction(
 }
 
 export async function deleteProjectAction(
-  projectId: string
+  projectRef: string
 ): Promise<ActionResult<{ id: string }>> {
   const userId = await getAuthUserId();
   if (!userId) {
@@ -536,37 +733,21 @@ export async function deleteProjectAction(
   }
 
   try {
-    const existing = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
-      select: { id: true },
-    });
+    const existing = await getProjectOwnership(projectRef, userId);
 
     if (!existing) {
       return { success: false, error: "Project not found" };
     }
 
     await prisma.project.delete({
-      where: { id: projectId },
+      where: { id: existing.id },
     });
 
-    return { success: true, data: { id: projectId } };
+    return { success: true, data: { id: existing.id } };
   } catch (error) {
     console.error("Error deleting project:", error);
     return { success: false, error: "Failed to delete project" };
   }
-}
-
-async function getProjectOwnership(projectId: string, userId: string) {
-  return prisma.project.findFirst({
-    where: {
-      id: projectId,
-      userId,
-    },
-    select: { id: true },
-  });
 }
 
 async function resolveCategoryId(params: {
@@ -623,7 +804,7 @@ async function resolveCategoryId(params: {
 }
 
 export async function createProjectGanttDomainAction(
-  projectId: string,
+  projectRef: string,
   name: string,
   description: string
 ): Promise<ActionResult<ProjectGanttDomainItem>> {
@@ -644,7 +825,7 @@ export async function createProjectGanttDomainAction(
   }
 
   try {
-    const existingProject = await getProjectOwnership(projectId, userId);
+    const existingProject = await getProjectOwnership(projectRef, userId);
 
     if (!existingProject) {
       return { success: false, error: "Project not found" };
@@ -654,7 +835,7 @@ export async function createProjectGanttDomainAction(
       data: {
         name: trimmedName,
         description: trimmedDescription,
-        projectId,
+        projectId: existingProject.id,
         userId,
       },
       select: {
@@ -695,7 +876,7 @@ export async function createProjectGanttDomainAction(
 }
 
 export async function updateProjectGanttDomainAction(
-  projectId: string,
+  projectRef: string,
   domainId: string,
   name: string,
   description: string
@@ -717,10 +898,15 @@ export async function updateProjectGanttDomainAction(
   }
 
   try {
+    const existingProject = await getProjectOwnership(projectRef, userId);
+    if (!existingProject) {
+      return { success: false, error: "Project not found" };
+    }
+
     const domain = await prisma.projectGantdomains.findFirst({
       where: {
         id: domainId,
-        projectId,
+        projectId: existingProject.id,
         userId,
       },
       select: { id: true },
@@ -774,7 +960,7 @@ export async function updateProjectGanttDomainAction(
 }
 
 export async function deleteProjectGanttDomainAction(
-  projectId: string,
+  projectRef: string,
   domainId: string
 ): Promise<ActionResult<{ id: string }>> {
   const userId = await getAuthUserId();
@@ -783,10 +969,15 @@ export async function deleteProjectGanttDomainAction(
   }
 
   try {
+    const existingProject = await getProjectOwnership(projectRef, userId);
+    if (!existingProject) {
+      return { success: false, error: "Project not found" };
+    }
+
     const domain = await prisma.projectGantdomains.findFirst({
       where: {
         id: domainId,
-        projectId,
+        projectId: existingProject.id,
         userId,
       },
       select: { id: true },
@@ -815,7 +1006,7 @@ export async function deleteProjectGanttDomainAction(
 }
 
 export async function createGanttTaskAction(params: {
-  projectId: string;
+  projectRef: string;
   domainId: string;
   name: string;
   description: string;
@@ -841,10 +1032,18 @@ export async function createGanttTaskAction(params: {
   }
 
   try {
+    const projectId = await resolveProjectIdByRef({
+      projectRef: params.projectRef,
+      userId,
+    });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
     const domain = await prisma.projectGantdomains.findFirst({
       where: {
         id: params.domainId,
-        projectId: params.projectId,
+        projectId,
         userId,
       },
       select: { id: true },
@@ -882,7 +1081,7 @@ export async function createGanttTaskAction(params: {
         ganttcolumnType: params.ganttcolumnType ?? "PLANNED",
         categoryId: categoryResult.data,
         projectGantdomainsId: params.domainId,
-        projectId: params.projectId,
+        projectId,
       },
       select: {
         id: true,
@@ -912,7 +1111,7 @@ export async function createGanttTaskAction(params: {
 }
 
 export async function updateGanttTaskAction(params: {
-  projectId: string;
+  projectRef: string;
   domainId: string;
   taskId: string;
   name: string;
@@ -940,10 +1139,18 @@ export async function updateGanttTaskAction(params: {
   }
 
   try {
+    const projectId = await resolveProjectIdByRef({
+      projectRef: params.projectRef,
+      userId,
+    });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
     const task = await prisma.ganttTasks.findFirst({
       where: {
         id: params.taskId,
-        projectId: params.projectId,
+        projectId,
         projectGantdomainsId: params.domainId,
         project: {
           userId,
@@ -1007,7 +1214,7 @@ export async function updateGanttTaskAction(params: {
 }
 
 export async function deleteGanttTaskAction(params: {
-  projectId: string;
+  projectRef: string;
   domainId: string;
   taskId: string;
 }): Promise<ActionResult<{ id: string }>> {
@@ -1017,10 +1224,18 @@ export async function deleteGanttTaskAction(params: {
   }
 
   try {
+    const projectId = await resolveProjectIdByRef({
+      projectRef: params.projectRef,
+      userId,
+    });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
     const task = await prisma.ganttTasks.findFirst({
       where: {
         id: params.taskId,
-        projectId: params.projectId,
+        projectId,
         projectGantdomainsId: params.domainId,
         project: {
           userId,
@@ -1045,7 +1260,7 @@ export async function deleteGanttTaskAction(params: {
 }
 
 export async function updateProjectDbModelAction(
-  projectId: string,
+  projectRef: string,
   dbmodel: unknown
 ): Promise<ActionResult<{ id: string; dbmodel: unknown }>> {
   const userId = await getAuthUserId();
@@ -1058,20 +1273,14 @@ export async function updateProjectDbModelAction(
   }
 
   try {
-    const existing = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
-      select: { id: true },
-    });
+    const existing = await getProjectOwnership(projectRef, userId);
 
     if (!existing) {
       return { success: false, error: "Project not found" };
     }
 
     const project = await prisma.project.update({
-      where: { id: projectId },
+      where: { id: existing.id },
       data: { dbmodel },
       select: {
         id: true,

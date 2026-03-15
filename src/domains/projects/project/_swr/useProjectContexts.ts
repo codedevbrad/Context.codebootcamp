@@ -9,14 +9,14 @@ import {
   type ProjectContextListItem,
 } from "@/domains/projects/project/db";
 
-const fetcher = async ([, projectId]: readonly [string, string]) =>
-  getProjectContexts(projectId);
+const fetcher = async ([, projectRef]: readonly [string, string]) =>
+  getProjectContexts(projectRef);
 
 export function useProjectContexts(
-  projectId: string,
+  projectRef: string,
   initialData?: ProjectContextListItem[]
 ) {
-  const key = projectId ? (["project-contexts", projectId] as const) : null;
+  const key = projectRef ? (["project-contexts", projectRef] as const) : null;
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     fallbackData: initialData,
@@ -25,7 +25,7 @@ export function useProjectContexts(
   const contexts = data ?? [];
 
   const createContext = async (name: string, description: string) => {
-    const result = await createProjectContextAction(projectId, name, description);
+    const result = await createProjectContextAction(projectRef, name, description);
 
     if (result.success && result.data) {
       const created = result.data;
@@ -35,13 +35,16 @@ export function useProjectContexts(
     return result;
   };
 
-  const updateContext = async (contextId: string, name: string, description: string) => {
-    const result = await updateProjectContextAction(projectId, contextId, name, description);
+  const updateContext = async (contextRef: string, name: string, description: string) => {
+    const result = await updateProjectContextAction(projectRef, contextRef, name, description);
 
     if (result.success && result.data) {
       const updated = result.data;
       await mutate(
-        (prev) => (prev ?? []).map((context) => (context.id === contextId ? updated : context)),
+        (prev) =>
+          (prev ?? []).map((context) =>
+            context.id === contextRef || context.slug === contextRef ? updated : context
+          ),
         { revalidate: false }
       );
     }
@@ -49,13 +52,19 @@ export function useProjectContexts(
     return result;
   };
 
-  const deleteContext = async (contextId: string) => {
-    const result = await deleteProjectContextAction(projectId, contextId);
+  const deleteContext = async (contextRef: string) => {
+    const result = await deleteProjectContextAction(projectRef, contextRef);
 
     if (result.success) {
-      await mutate((prev) => (prev ?? []).filter((context) => context.id !== contextId), {
-        revalidate: false,
-      });
+      await mutate(
+        (prev) =>
+          (prev ?? []).filter(
+            (context) => context.id !== contextRef && context.slug !== contextRef
+          ),
+        {
+          revalidate: false,
+        }
+      );
     }
 
     return result;

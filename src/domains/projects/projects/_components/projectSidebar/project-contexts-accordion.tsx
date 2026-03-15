@@ -23,12 +23,13 @@ import {
 import { useProjectContexts } from "@/domains/projects/project/_swr/useProjectContexts";
 
 type ProjectContextsAccordionProps = {
-  projectId: string;
+  projectSlug: string;
   pathname: string;
 };
 
 type SidebarContextItem = {
   id: string;
+  slug: string;
   name: string;
   description: string;
   contextGroupId: string | null;
@@ -40,8 +41,8 @@ function toTimestamp(value: Date | string) {
   return new Date(value).getTime();
 }
 
-export function ProjectContextsAccordion({ projectId, pathname }: ProjectContextsAccordionProps) {
-  const { contexts, isLoading, createContext } = useProjectContexts(projectId);
+export function ProjectContextsAccordion({ projectSlug, pathname }: ProjectContextsAccordionProps) {
+  const { contexts, isLoading, createContext } = useProjectContexts(projectSlug);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -75,17 +76,18 @@ export function ProjectContextsAccordion({ projectId, pathname }: ProjectContext
       }
 
       const createdContext = result.data;
+      const createdContextRef = createdContext.slug ?? createdContext.id;
       setNewName("");
       setNewDescription("");
       setIsCreateOpen(false);
-      router.push(`/my/project/${projectId}/contexts/context/${createdContext.id}`);
+      router.push(`/my/project/${projectSlug}/contexts/context/${createdContextRef}`);
       router.refresh();
     });
   };
 
   return (
     <Accordion type="single" collapsible className="mt-2">
-      <AccordionItem value={`contexts-${projectId}`} className="border-none">
+      <AccordionItem value={`contexts-${projectSlug}`} className="border-none">
         <AccordionTrigger className="rounded px-2 py-1 text-xs text-muted-foreground hover:no-underline cursor-pointer hover:bg-gray-200">
           <span>Contexts [{sortedContexts.length}]</span>
         </AccordionTrigger>
@@ -102,7 +104,8 @@ export function ProjectContextsAccordion({ projectId, pathname }: ProjectContext
           ) : (
             <ul className="space-y-1 px-2 pb-2">
               {sortedContexts.map((context) => {
-                const contextHref = `/my/project/${projectId}/contexts/context/${context.id}`;
+                const contextRef = context.slug ?? context.id;
+                const contextHref = `/my/project/${projectSlug}/contexts/context/${contextRef}`;
                 const isContextActive = pathname === contextHref;
 
                 return (

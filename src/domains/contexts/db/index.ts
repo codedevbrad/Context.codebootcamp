@@ -2,6 +2,7 @@
 
 import { auth } from "@/../auth";
 import { prisma } from "@/lib/db";
+import { normalizeContextSlugRouteRef } from "@/lib/slug";
 import { askOpenAI } from "@/services/openai";
 
 export type ActionResult<T = void> =
@@ -145,16 +146,13 @@ export async function getContextGroupById(groupId: string) {
   });
 }
 
-export async function getContextById(contextId: string) {
-  const userId = await getAuthUserId();
-  if (!userId) {
-    return null;
-  }
+async function getContextDetailByRef(contextRef: string, userId: string) {
+  const normalizedSlug = normalizeContextSlugRouteRef(contextRef);
 
-  const context = await prisma.context.findFirst({
+  return (await prisma.context.findFirst({
     where: {
-      id: contextId,
       userId,
+      OR: [{ slug: normalizedSlug }, { id: contextRef }],
     },
     select: {
       id: true,
@@ -171,7 +169,16 @@ export async function getContextById(contextId: string) {
         },
       },
     },
-  });
+  })) as ContextDetailItem | null;
+}
+
+export async function getContextByRef(contextRef: string) {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return null;
+  }
+
+  const context = await getContextDetailByRef(contextRef, userId);
 
   if (!context) {
     return null;
@@ -181,6 +188,10 @@ export async function getContextById(contextId: string) {
     ...context,
     conversation: parseConversation(context.content),
   };
+}
+
+export async function getContextById(contextId: string) {
+  return getContextByRef(contextId);
 }
 
 export async function createContextGroupAction(
@@ -374,7 +385,7 @@ export async function createContextInGroupAction(
 }
 
 export async function askContextQuestionAction(
-  contextId: string,
+  contextRef: string,
   question: string
 ): Promise<ActionResult<{ reply: string; conversation: ContextChatMessage[] }>> {
   const userId = await getAuthUserId();
@@ -388,27 +399,7 @@ export async function askContextQuestionAction(
   }
 
   try {
-    const context = (await prisma.context.findFirst({
-      where: {
-        id: contextId,
-        userId,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        content: true,
-        contextGroupId: true,
-        createdAt: true,
-        updatedAt: true,
-        contextGroup: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })) as ContextDetailItem | null;
+    const context = await getContextDetailByRef(contextRef, userId);
 
     if (!context) {
       return { success: false, error: "Context not found" };
@@ -447,7 +438,7 @@ Keep answers concise and practical.`,
     const updatedConversation = [...previousConversation, userMessage, assistantMessage];
 
     await prisma.context.update({
-      where: { id: contextId },
+      where: { id: context.id },
       data: {
         content: JSON.stringify(updatedConversation),
       },

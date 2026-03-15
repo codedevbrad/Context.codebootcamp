@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getProjectById } from "@/domains/projects/project/db";
+import { getProjectBySlug } from "@/domains/projects/project/db";
 import ReactFlowComponent from "@/domains/projects/erm/_components/reactflow";
 import PrismaView from "@/domains/projects/erm/_components/prismaview";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,7 @@ export default async function ProjectErmPage({
 }) {
   const { projectid } = await params;
   const { view } = await searchParams;
-  const project = await getProjectById(projectid);
+  const project = await getProjectBySlug(projectid);
   const activeView = view === "model" ? "model" : "flow";
 
   if (!project) {
@@ -37,7 +37,7 @@ export default async function ProjectErmPage({
         </p>
         <div className="mb-3 flex items-center gap-2">
           <Link
-            href={`/my/project/${project.id}/erm?view=flow`}
+            href={`/my/project/${project.slug}/erm?view=flow`}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm transition-colors",
               activeView === "flow"
@@ -48,7 +48,7 @@ export default async function ProjectErmPage({
             React Flow View
           </Link>
           <Link
-            href={`/my/project/${project.id}/erm?view=model`}
+            href={`/my/project/${project.slug}/erm?view=model`}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm transition-colors",
               activeView === "model"
@@ -63,7 +63,7 @@ export default async function ProjectErmPage({
         {activeView === "model" ? (
           <PrismaView initialDbModel={project.dbmodel} />
         ) : (
-          <ReactFlowComponent projectId={project.id} initialDbModel={project.dbmodel} />
+          <ReactFlowComponent projectRef={project.slug} initialDbModel={project.dbmodel} />
         )}
       </section>
     </div>

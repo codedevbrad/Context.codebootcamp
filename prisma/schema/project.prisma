@@ -2,6 +2,7 @@ model Project {
   id          String @id @default(cuid())
   name        String
   description String
+  slug        String @unique
 
   specification Json @default("{}")
 
@@ -80,6 +81,7 @@ model Category {
 model ProjectWriting {
   id      String   @id @default(cuid())
   title   String
+  slug    String? @unique
   content Json
   stamped DateTime @default(now())
 

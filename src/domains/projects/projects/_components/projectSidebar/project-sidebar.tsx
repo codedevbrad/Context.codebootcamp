@@ -37,12 +37,12 @@ function toTimestamp(value: Date | string) {
 }
 
 type ProjectSectionProps = {
-  projectId: string;
+  projectSlug: string;
   pathname: string;
 };
-function ProjectTasksLink({ projectId, pathname }: ProjectSectionProps) {
-  const { taskCount, isLoading } = useProjectTaskCount(projectId);
-  const tasksHref = `/my/project/${projectId}/tasks`;
+function ProjectTasksLink({ projectSlug, pathname }: ProjectSectionProps) {
+  const { taskCount, isLoading } = useProjectTaskCount(projectSlug);
+  const tasksHref = `/my/project/${projectSlug}/tasks`;
   const isActive = pathname === tasksHref || pathname.startsWith(`${tasksHref}/`);
 
   return (
@@ -112,7 +112,7 @@ export function ProjectSidebar({
       setNewName("");
       setNewDescription("");
       setIsCreateOpen(false);
-      router.push(`/my/project/${createdProject.id}`);
+      router.push(`/my/project/${createdProject.slug}`);
       router.refresh();
     });
   };
@@ -172,7 +172,7 @@ export function ProjectSidebar({
       }
 
       setDeletingProject(null);
-      if (pathname === `/my/project/${deletingId}`) {
+      if (pathname === `/my/project/${deletingProject.slug}`) {
         router.push("/my");
       }
       router.refresh();
@@ -277,7 +277,7 @@ export function ProjectSidebar({
             </p>
           ) : (
             sortedProjects.map((project) => {
-              const href = `/my/project/${project.id}`;
+              const href = `/my/project/${project.slug}`;
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               const isEditingThis = editingId === project.id;
               const projectInitial = project.name.trim().charAt(0).toUpperCase() || "?";
@@ -396,9 +396,9 @@ export function ProjectSidebar({
                   </div>
                   {!isCollapsed ? (
                     <>
-                      <ProjectTasksLink projectId={project.id} pathname={pathname} />
-                      <ProjectFilesAccordion projectId={project.id} pathname={pathname} />
-                      <ProjectContextsAccordion projectId={project.id} pathname={pathname} />
+                      <ProjectTasksLink projectSlug={project.slug} pathname={pathname} />
+                      <ProjectFilesAccordion projectSlug={project.slug} pathname={pathname} />
+                      <ProjectContextsAccordion projectSlug={project.slug} pathname={pathname} />
                       
                     </>
                   ) : null}

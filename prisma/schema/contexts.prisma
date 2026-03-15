@@ -1,6 +1,8 @@
 model Context {
   id          String @id @default(cuid())
   name        String
+  slug        String? @unique
+
   description String
   content     Json   @default("{}")
 

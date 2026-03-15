@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/accordion";
 
 type ContextChatProps = {
-  contextId: string;
+  contextRef: string;
   initialConversation: ContextChatMessage[];
 };
 
-export function ContextChat({ contextId, initialConversation }: ContextChatProps) {
+export function ContextChat({ contextRef, initialConversation }: ContextChatProps) {
   const [conversation, setConversation] = useState<ContextChatMessage[]>(
     initialConversation
   );
@@ -32,7 +32,7 @@ export function ContextChat({ contextId, initialConversation }: ContextChatProps
     setError("");
 
     startTransition(async () => {
-      const result = await askContextQuestionAction(contextId, question);
+      const result = await askContextQuestionAction(contextRef, question);
 
       if (!result.success) {
         setError(result.error);

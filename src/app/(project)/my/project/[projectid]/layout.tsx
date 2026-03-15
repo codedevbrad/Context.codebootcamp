@@ -11,7 +11,7 @@ export default async function ProjectLayout({
 
   return (
     <div className="space-y-4">
-      <ProjectSubnav projectId={projectid} />
+      <ProjectSubnav projectSlug={projectid} />
       {children}
     </div>
   );

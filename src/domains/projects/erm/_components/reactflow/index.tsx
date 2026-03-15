@@ -54,7 +54,7 @@ type ErmNode = Node<ErmNodeData>;
 type ErmEdge = Edge<{ relationType: RelationType }>;
 
 type ReactFlowComponentProps = {
-  projectId: string;
+  projectRef: string;
   initialDbModel: unknown;
 };
 
@@ -268,7 +268,7 @@ function flowToBoard(nodes: ErmNode[], edges: ErmEdge[]): ErmBoard {
   };
 }
 
-export default function ReactFlowComponent({ projectId, initialDbModel }: ReactFlowComponentProps) {
+export default function ReactFlowComponent({ projectRef, initialDbModel }: ReactFlowComponentProps) {
   const initialBoard = useMemo(() => normalizeBoard(initialDbModel), [initialDbModel]);
   const initialFlow = useMemo(() => boardToFlow(initialBoard), [initialBoard]);
   const [nodes, setNodes] = useState<ErmNode[]>(initialFlow.nodes);
@@ -287,14 +287,14 @@ export default function ReactFlowComponent({ projectId, initialDbModel }: ReactF
   const persistBoard = useCallback(
     async (nextNodes: ErmNode[], nextEdges: ErmEdge[]) => {
       const payload = flowToBoard(nextNodes, nextEdges);
-      const result = await updateProjectDbModelAction(projectId, payload);
+      const result = await updateProjectDbModelAction(projectRef, payload);
       if (!result.success) {
         setError(result.error);
       } else {
         setError("");
       }
     },
-    [projectId]
+    [projectRef]
   );
 
   useEffect(() => {

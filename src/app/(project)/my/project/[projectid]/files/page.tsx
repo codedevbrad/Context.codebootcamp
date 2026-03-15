@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getProjectById } from "@/domains/projects/project/db";
+import { getProjectBySlug } from "@/domains/projects/project/db";
 import { getProjectWritings } from "@/domains/projects/writing/db";
 import { ProjectFilesList } from "@/app/(project)/my/project/[projectid]/files/_components/project-files-list";
 
@@ -13,7 +13,7 @@ export default async function ProjectFilesPage({
   const { projectid } = await params;
 
   const [project, writings] = await Promise.all([
-    getProjectById(projectid),
+    getProjectBySlug(projectid),
     getProjectWritings(projectid),
   ]);
 
@@ -28,7 +28,7 @@ export default async function ProjectFilesPage({
         <p> { project.description } </p>
       </div>
 
-      <ProjectFilesList projectId={project.id} initialWritings={writings} />
+      <ProjectFilesList projectSlug={project.slug} initialWritings={writings} />
     </div>
   );
 }

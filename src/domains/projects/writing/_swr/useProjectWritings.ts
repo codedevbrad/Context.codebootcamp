@@ -9,11 +9,11 @@ import {
   type ProjectWritingListItem,
 } from "@/domains/projects/writing/db";
 
-const fetcher = async ([, projectId]: readonly [string, string]) =>
-  getProjectWritings(projectId);
+const fetcher = async ([, projectRef]: readonly [string, string]) =>
+  getProjectWritings(projectRef);
 
-export function useProjectWritings(projectId: string, initialData?: ProjectWritingListItem[]) {
-  const key = projectId ? (["project-writings", projectId] as const) : null;
+export function useProjectWritings(projectRef: string, initialData?: ProjectWritingListItem[]) {
+  const key = projectRef ? (["project-writings", projectRef] as const) : null;
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     fallbackData: initialData,
@@ -22,7 +22,7 @@ export function useProjectWritings(projectId: string, initialData?: ProjectWriti
   const writings = data ?? [];
 
   const createWriting = async (title: string) => {
-    const result = await createProjectWritingAction(projectId, title);
+    const result = await createProjectWritingAction(projectRef, title);
 
     if (result.success && result.data) {
       const created = result.data;
@@ -32,14 +32,16 @@ export function useProjectWritings(projectId: string, initialData?: ProjectWriti
     return result;
   };
 
-  const updateWritingTitle = async (writingId: string, title: string) => {
-    const result = await updateProjectWritingTitleAction(projectId, writingId, title);
+  const updateWritingTitle = async (writingRef: string, title: string) => {
+    const result = await updateProjectWritingTitleAction(projectRef, writingRef, title);
 
     if (result.success && result.data) {
       const updated = result.data;
       await mutate(
         (prev) =>
-          (prev ?? []).map((writing) => (writing.id === writingId ? updated : writing)),
+          (prev ?? []).map((writing) =>
+            writing.slug === writingRef || writing.id === writingRef ? updated : writing
+          ),
         { revalidate: false }
       );
     }
@@ -47,13 +49,19 @@ export function useProjectWritings(projectId: string, initialData?: ProjectWriti
     return result;
   };
 
-  const deleteWriting = async (writingId: string) => {
-    const result = await deleteProjectWritingAction(projectId, writingId);
+  const deleteWriting = async (writingRef: string) => {
+    const result = await deleteProjectWritingAction(projectRef, writingRef);
 
     if (result.success) {
-      await mutate((prev) => (prev ?? []).filter((writing) => writing.id !== writingId), {
-        revalidate: false,
-      });
+      await mutate(
+        (prev) =>
+          (prev ?? []).filter(
+            (writing) => writing.slug !== writingRef && writing.id !== writingRef
+          ),
+        {
+          revalidate: false,
+        }
+      );
     }
 
     return result;

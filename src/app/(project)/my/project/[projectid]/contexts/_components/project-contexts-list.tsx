@@ -22,7 +22,7 @@ import {
 } from "@/domains/projects/project/db";
 
 type ProjectContextsListProps = {
-  projectId: string;
+  projectSlug: string;
   initialContexts: ProjectContextListItem[];
 };
 
@@ -35,8 +35,8 @@ function toTimestamp(value: Date | string) {
   return new Date(value).getTime();
 }
 
-export function ProjectContextsList({ projectId, initialContexts }: ProjectContextsListProps) {
-  const { contexts, mutate } = useProjectContexts(projectId, initialContexts);
+export function ProjectContextsList({ projectSlug, initialContexts }: ProjectContextsListProps) {
+  const { contexts, mutate } = useProjectContexts(projectSlug, initialContexts);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,14 +65,14 @@ export function ProjectContextsList({ projectId, initialContexts }: ProjectConte
     setEditDescription("");
   };
 
-  const saveEdit = (e: React.FormEvent<HTMLFormElement>, contextId: string) => {
+  const saveEdit = (e: React.FormEvent<HTMLFormElement>, contextRef: string) => {
     e.preventDefault();
     setError("");
 
     startTransition(async () => {
       const result = await updateProjectContextAction(
-        projectId,
-        contextId,
+        projectSlug,
+        contextRef,
         editName,
         editDescription
       );
@@ -90,7 +90,9 @@ export function ProjectContextsList({ projectId, initialContexts }: ProjectConte
       const updatedContext = result.data;
       await mutate(
         (prev) =>
-          (prev ?? []).map((context) => (context.id === contextId ? updatedContext : context)),
+          (prev ?? []).map((context) =>
+            context.id === contextRef || context.slug === contextRef ? updatedContext : context
+          ),
         { revalidate: false }
       );
       cancelEdit();
@@ -103,17 +105,23 @@ export function ProjectContextsList({ projectId, initialContexts }: ProjectConte
     }
 
     startTransition(async () => {
-      const deletingId = deletingContext.id;
-      const result = await deleteProjectContextAction(projectId, deletingId);
+      const deletingRef = deletingContext.slug ?? deletingContext.id;
+      const result = await deleteProjectContextAction(projectSlug, deletingRef);
 
       if (!result.success) {
         setError(result.error);
         return;
       }
 
-      await mutate((prev) => (prev ?? []).filter((context) => context.id !== deletingId), {
-        revalidate: false,
-      });
+      await mutate(
+        (prev) =>
+          (prev ?? []).filter(
+            (context) => context.id !== deletingRef && context.slug !== deletingRef
+          ),
+        {
+          revalidate: false,
+        }
+      );
       setDeletingContext(null);
     });
   };
@@ -135,6 +143,7 @@ export function ProjectContextsList({ projectId, initialContexts }: ProjectConte
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {sortedContexts.map((context) => {
             const isEditingThis = editingId === context.id;
+            const contextRef = context.slug ?? context.id;
 
             return (
               <li key={context.id} className="group relative rounded-xl border p-3">
@@ -173,7 +182,7 @@ export function ProjectContextsList({ projectId, initialContexts }: ProjectConte
                           Update this context name and description.
                         </PopoverDescription>
                       </PopoverHeader>
-                      <form onSubmit={(e) => saveEdit(e, context.id)} className="mt-3 space-y-2">
+                      <form onSubmit={(e) => saveEdit(e, contextRef)} className="mt-3 space-y-2">
                         <Input
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
@@ -220,7 +229,7 @@ export function ProjectContextsList({ projectId, initialContexts }: ProjectConte
                 </div>
 
                 <Link
-                  href={`/my/project/${projectId}/contexts/context/${context.id}`}
+                  href={`/my/project/${projectSlug}/contexts/context/${contextRef}`}
                   className="block pr-14"
                 >
                   <p className="font-medium whitespace-normal wrap-break-word">{context.name}</p>

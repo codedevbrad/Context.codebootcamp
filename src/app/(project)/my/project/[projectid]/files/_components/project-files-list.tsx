@@ -21,7 +21,7 @@ import {
 import { useProjectWritings } from "@/domains/projects/writing/_swr/useProjectWritings";
 
 type ProjectFilesListProps = {
-  projectId: string;
+  projectSlug: string;
   initialWritings: ProjectWritingListItem[];
 };
 
@@ -35,10 +35,10 @@ function toTimestamp(value: Date | string) {
   return new Date(value).getTime();
 }
 
-export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesListProps) {
+export function ProjectFilesList({ projectSlug, initialWritings }: ProjectFilesListProps) {
   const router = useRouter();
   const { writings, createWriting, updateWritingTitle, deleteWriting } = useProjectWritings(
-    projectId,
+    projectSlug,
     initialWritings
   );
   const [error, setError] = useState("");
@@ -79,7 +79,7 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
       const createdWriting = result.data;
       setNewTitle("");
       setIsCreateOpen(false);
-      router.push(`/my/project/${projectId}/files/${createdWriting.id}`);
+      router.push(`/my/project/${projectSlug}/files/${createdWriting.slug}`);
       router.refresh();
     });
   };
@@ -95,12 +95,12 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
     setEditTitle("");
   };
 
-  const saveEdit = (e: React.FormEvent<HTMLFormElement>, writingId: string) => {
+  const saveEdit = (e: React.FormEvent<HTMLFormElement>, writingRef: string) => {
     e.preventDefault();
     setError("");
 
     startTransition(async () => {
-      const result = await updateWritingTitle(writingId, editTitle);
+      const result = await updateWritingTitle(writingRef, editTitle);
 
       if (!result.success) {
         setError(result.error);
@@ -123,8 +123,7 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
     }
 
     startTransition(async () => {
-      const deletingId = deletingWriting.id;
-      const result = await deleteWriting(deletingId);
+      const result = await deleteWriting(deletingWriting.slug);
 
       if (!result.success) {
         setError(result.error);
@@ -199,7 +198,7 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
               <li key={writing.id} className="group rounded-xl border p-2">
                 <div className="flex items-start gap-2">
                   <Link
-                    href={`/my/project/${projectId}/files/${writing.id}`}
+                    href={`/my/project/${projectSlug}/files/${writing.slug}`}
                     className="min-w-0 flex-1 rounded px-2 py-1"
                   >
                     <p className="font-medium">{writing.title}</p>
@@ -251,7 +250,7 @@ export function ProjectFilesList({ projectId, initialWritings }: ProjectFilesLis
                           <PopoverDescription>Update this writing file title.</PopoverDescription>
                         </PopoverHeader>
                         <form
-                          onSubmit={(e) => saveEdit(e, writing.id)}
+                          onSubmit={(e) => saveEdit(e, writing.slug)}
                           className="mt-3 space-y-2"
                         >
                           <Input

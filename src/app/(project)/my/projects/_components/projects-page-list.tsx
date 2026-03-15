@@ -23,13 +23,13 @@ function toTimestamp(value: Date | string) {
 }
 
 type ProjectSectionProps = {
-  projectId: string;
+  projectSlug: string;
   pathname: string;
 };
 
-function ProjectTasksLink({ projectId, pathname }: ProjectSectionProps) {
-  const { taskCount, isLoading } = useProjectTaskCount(projectId);
-  const tasksHref = `/my/project/${projectId}/tasks`;
+function ProjectTasksLink({ projectSlug, pathname }: ProjectSectionProps) {
+  const { taskCount, isLoading } = useProjectTaskCount(projectSlug);
+  const tasksHref = `/my/project/${projectSlug}/tasks`;
   const isActive = pathname === tasksHref || pathname.startsWith(`${tasksHref}/`);
 
   return (
@@ -76,7 +76,7 @@ export function ProjectsPageList({ initialProjects }: ProjectsPageListProps) {
       ) : (
         <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {sortedProjects.map((project) => {
-            const href = `/my/project/${project.id}`;
+            const href = `/my/project/${project.slug}`;
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
             return (
@@ -91,9 +91,9 @@ export function ProjectsPageList({ initialProjects }: ProjectsPageListProps) {
                   <p className="truncate text-xs text-muted-foreground">{project.description}</p>
                 </Link>
 
-                <ProjectTasksLink projectId={project.id} pathname={pathname} />
-                <ProjectFilesAccordion projectId={project.id} pathname={pathname} />
-                <ProjectContextsAccordion projectId={project.id} pathname={pathname} />
+                <ProjectTasksLink projectSlug={project.slug} pathname={pathname} />
+                <ProjectFilesAccordion projectSlug={project.slug} pathname={pathname} />
+                <ProjectContextsAccordion projectSlug={project.slug} pathname={pathname} />
               </div>
             );
           })}

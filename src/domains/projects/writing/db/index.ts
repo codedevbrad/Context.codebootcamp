@@ -2,6 +2,12 @@
 
 import { auth } from "@/../auth";
 import type { ActionResult } from "@/domains/contexts/db";
+import type { Prisma } from "@prisma/client";
+import {
+  buildFileSlug,
+  normalizeFileSlugRouteRef,
+  normalizeProjectSlugRouteRef,
+} from "@/lib/slug";
 import { prisma } from "@/lib/db";
 import {
   addProjectWritingPage,
@@ -15,6 +21,7 @@ import {
 
 export type ProjectWritingListItem = {
   id: string;
+  slug: string;
   title: string;
   content: unknown;
   stamped: Date;
@@ -38,6 +45,15 @@ function normalizeWritingRecord<T extends { content: unknown }>(writing: T): T {
   };
 }
 
+function normalizeWritingSlug<T extends { id: string; slug: string | null }>(
+  writing: T
+): Omit<T, "slug"> & { slug: string } {
+  return {
+    ...writing,
+    slug: writing.slug ?? writing.id,
+  };
+}
+
 async function getAuthUserId() {
   const session = await auth();
   const userId = session?.user?.id ?? null;
@@ -54,11 +70,50 @@ async function getAuthUserId() {
   return user?.id ?? null;
 }
 
+async function resolveProjectIdByRef(params: {
+  projectRef: string;
+  userId: string;
+}): Promise<string | null> {
+  const normalizedSlug = normalizeProjectSlugRouteRef(params.projectRef);
+  const project = await prisma.project.findFirst({
+    where: {
+      userId: params.userId,
+      OR: [{ slug: normalizedSlug }, { id: params.projectRef }],
+    },
+    select: { id: true },
+  });
+
+  return project?.id ?? null;
+}
+
+async function resolveWritingIdByRef(params: {
+  projectId: string;
+  userId: string;
+  writingRef: string;
+}): Promise<string | null> {
+  const normalizedSlug = normalizeFileSlugRouteRef(params.writingRef);
+  const writing = await prisma.projectWriting.findFirst({
+    where: {
+      projectId: params.projectId,
+      userId: params.userId,
+      OR: [{ slug: normalizedSlug }, { id: params.writingRef }],
+    },
+    select: { id: true },
+  });
+
+  return writing?.id ?? null;
+}
+
 export async function getProjectWritings(
-  projectId: string
+  projectRef: string
 ): Promise<ProjectWritingListItem[]> {
   const userId = await getAuthUserId();
   if (!userId) {
+    return [];
+  }
+
+  const projectId = await resolveProjectIdByRef({ projectRef, userId });
+  if (!projectId) {
     return [];
   }
 
@@ -70,6 +125,7 @@ export async function getProjectWritings(
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
+      slug: true,
       title: true,
       content: true,
       stamped: true,
@@ -87,15 +143,31 @@ export async function getProjectWritings(
     },
   });
 
-  return writings.map((writing) => normalizeWritingRecord(writing));
+  return writings.map((writing) =>
+    normalizeWritingRecord(normalizeWritingSlug(writing))
+  );
 }
 
 export async function getProjectWritingById(
-  projectId: string,
-  writingId: string
+  projectRef: string,
+  writingRef: string
 ): Promise<ProjectWritingDetails | null> {
   const userId = await getAuthUserId();
   if (!userId) {
+    return null;
+  }
+
+  const projectId = await resolveProjectIdByRef({ projectRef, userId });
+  if (!projectId) {
+    return null;
+  }
+
+  const writingId = await resolveWritingIdByRef({
+    projectId,
+    userId,
+    writingRef,
+  });
+  if (!writingId) {
     return null;
   }
 
@@ -107,6 +179,7 @@ export async function getProjectWritingById(
     },
     select: {
       id: true,
+      slug: true,
       title: true,
       content: true,
       stamped: true,
@@ -128,11 +201,11 @@ export async function getProjectWritingById(
     return null;
   }
 
-  return normalizeWritingRecord(writing);
+  return normalizeWritingRecord(normalizeWritingSlug(writing));
 }
 
 export async function createProjectWritingAction(
-  projectId: string,
+  projectRef: string,
   title: string
 ): Promise<ActionResult<ProjectWritingListItem>> {
   const userId = await getAuthUserId();
@@ -146,27 +219,21 @@ export async function createProjectWritingAction(
   }
 
   try {
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!project) {
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
       return { success: false, error: "Project not found" };
     }
 
-    const writing = await prisma.projectWriting.create({
+    const createdWriting = await prisma.projectWriting.create({
       data: {
         title: trimmedTitle,
-        content: createProjectWritingContentV2(),
+        content: createProjectWritingContentV2() as unknown as Prisma.InputJsonValue,
         projectId,
         userId,
       },
       select: {
         id: true,
+        slug: true,
         title: true,
         content: true,
         stamped: true,
@@ -184,7 +251,34 @@ export async function createProjectWritingAction(
       },
     });
 
-    return { success: true, data: normalizeWritingRecord(writing) };
+    const expectedSlug = buildFileSlug(trimmedTitle, createdWriting.id);
+    const writing = await prisma.projectWriting.update({
+      where: { id: createdWriting.id },
+      data: { slug: expectedSlug },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        content: true,
+        stamped: true,
+        projectId: true,
+        ganttTaskId: true,
+        ganttTask: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: normalizeWritingRecord(normalizeWritingSlug(writing)),
+    };
   } catch (error) {
     console.error("Error creating project writing:", error);
     return { success: false, error: "Failed to create writing file" };
@@ -192,8 +286,8 @@ export async function createProjectWritingAction(
 }
 
 export async function updateProjectWritingTitleAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   title: string
 ): Promise<ActionResult<ProjectWritingListItem>> {
   const userId = await getAuthUserId();
@@ -207,24 +301,30 @@ export async function updateProjectWritingTitleAction(
   }
 
   try {
-    const existing = await prisma.projectWriting.findFirst({
-      where: {
-        id: writingId,
-        projectId,
-        userId,
-      },
-      select: { id: true },
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const writingId = await resolveWritingIdByRef({
+      projectId,
+      userId,
+      writingRef,
     });
 
-    if (!existing) {
+    if (!writingId) {
       return { success: false, error: "Writing file not found" };
     }
 
     const writing = await prisma.projectWriting.update({
       where: { id: writingId },
-      data: { title: trimmedTitle },
+      data: {
+        title: trimmedTitle,
+        slug: buildFileSlug(trimmedTitle, writingId),
+      },
       select: {
         id: true,
+        slug: true,
         title: true,
         content: true,
         stamped: true,
@@ -242,7 +342,10 @@ export async function updateProjectWritingTitleAction(
       },
     });
 
-    return { success: true, data: normalizeWritingRecord(writing) };
+    return {
+      success: true,
+      data: normalizeWritingRecord(normalizeWritingSlug(writing)),
+    };
   } catch (error) {
     console.error("Error updating project writing title:", error);
     return { success: false, error: "Failed to update writing title" };
@@ -250,8 +353,8 @@ export async function updateProjectWritingTitleAction(
 }
 
 export async function updateProjectWritingContentAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   content: unknown
 ): Promise<ActionResult<{ id: string; content: unknown; updatedAt: Date }>> {
   const userId = await getAuthUserId();
@@ -264,16 +367,18 @@ export async function updateProjectWritingContentAction(
   }
 
   try {
-    const existing = await prisma.projectWriting.findFirst({
-      where: {
-        id: writingId,
-        projectId,
-        userId,
-      },
-      select: { id: true },
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const writingId = await resolveWritingIdByRef({
+      projectId,
+      userId,
+      writingRef,
     });
 
-    if (!existing) {
+    if (!writingId) {
       return { success: false, error: "Writing file not found" };
     }
 
@@ -281,7 +386,7 @@ export async function updateProjectWritingContentAction(
 
     const writing = await prisma.projectWriting.update({
       where: { id: writingId },
-      data: { content: normalizedContent },
+      data: { content: normalizedContent as unknown as Prisma.InputJsonValue },
       select: {
         id: true,
         content: true,
@@ -296,12 +401,25 @@ export async function updateProjectWritingContentAction(
   }
 }
 
-async function getExistingWritingWithContent(projectId: string, writingId: string, userId: string) {
+async function getExistingWritingWithContent(params: {
+  projectId: string;
+  writingRef: string;
+  userId: string;
+}) {
+  const writingId = await resolveWritingIdByRef({
+    projectId: params.projectId,
+    userId: params.userId,
+    writingRef: params.writingRef,
+  });
+  if (!writingId) {
+    return null;
+  }
+
   return prisma.projectWriting.findFirst({
     where: {
       id: writingId,
-      projectId,
-      userId,
+      projectId: params.projectId,
+      userId: params.userId,
     },
     select: {
       id: true,
@@ -311,8 +429,8 @@ async function getExistingWritingWithContent(projectId: string, writingId: strin
 }
 
 export async function addProjectWritingPageAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   title?: string
 ): Promise<ActionResult<{ id: string; content: unknown; updatedAt: Date }>> {
   const userId = await getAuthUserId();
@@ -321,7 +439,16 @@ export async function addProjectWritingPageAction(
   }
 
   try {
-    const existing = await getExistingWritingWithContent(projectId, writingId, userId);
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existing = await getExistingWritingWithContent({
+      projectId,
+      writingRef,
+      userId,
+    });
 
     if (!existing) {
       return { success: false, error: "Writing file not found" };
@@ -329,8 +456,8 @@ export async function addProjectWritingPageAction(
 
     const nextContent = addProjectWritingPage(existing.content, title?.trim());
     const writing = await prisma.projectWriting.update({
-      where: { id: writingId },
-      data: { content: nextContent },
+      where: { id: existing.id },
+      data: { content: nextContent as unknown as Prisma.InputJsonValue },
       select: {
         id: true,
         content: true,
@@ -346,8 +473,8 @@ export async function addProjectWritingPageAction(
 }
 
 export async function renameProjectWritingPageAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   pageId: string,
   title: string
 ): Promise<ActionResult<{ id: string; content: unknown; updatedAt: Date }>> {
@@ -362,7 +489,16 @@ export async function renameProjectWritingPageAction(
   }
 
   try {
-    const existing = await getExistingWritingWithContent(projectId, writingId, userId);
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existing = await getExistingWritingWithContent({
+      projectId,
+      writingRef,
+      userId,
+    });
 
     if (!existing) {
       return { success: false, error: "Writing file not found" };
@@ -374,8 +510,8 @@ export async function renameProjectWritingPageAction(
     }
 
     const writing = await prisma.projectWriting.update({
-      where: { id: writingId },
-      data: { content: nextContent },
+      where: { id: existing.id },
+      data: { content: nextContent as unknown as Prisma.InputJsonValue },
       select: {
         id: true,
         content: true,
@@ -391,8 +527,8 @@ export async function renameProjectWritingPageAction(
 }
 
 export async function deleteProjectWritingPageAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   pageId: string
 ): Promise<ActionResult<{ id: string; content: unknown; updatedAt: Date }>> {
   const userId = await getAuthUserId();
@@ -401,7 +537,16 @@ export async function deleteProjectWritingPageAction(
   }
 
   try {
-    const existing = await getExistingWritingWithContent(projectId, writingId, userId);
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existing = await getExistingWritingWithContent({
+      projectId,
+      writingRef,
+      userId,
+    });
 
     if (!existing) {
       return { success: false, error: "Writing file not found" };
@@ -413,8 +558,8 @@ export async function deleteProjectWritingPageAction(
     }
 
     const writing = await prisma.projectWriting.update({
-      where: { id: writingId },
-      data: { content: nextContent },
+      where: { id: existing.id },
+      data: { content: nextContent as unknown as Prisma.InputJsonValue },
       select: {
         id: true,
         content: true,
@@ -430,8 +575,8 @@ export async function deleteProjectWritingPageAction(
 }
 
 export async function updateProjectWritingActivePageAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   pageId: string
 ): Promise<ActionResult<{ id: string; content: unknown; updatedAt: Date }>> {
   const userId = await getAuthUserId();
@@ -440,7 +585,16 @@ export async function updateProjectWritingActivePageAction(
   }
 
   try {
-    const existing = await getExistingWritingWithContent(projectId, writingId, userId);
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existing = await getExistingWritingWithContent({
+      projectId,
+      writingRef,
+      userId,
+    });
 
     if (!existing) {
       return { success: false, error: "Writing file not found" };
@@ -452,8 +606,8 @@ export async function updateProjectWritingActivePageAction(
     }
 
     const writing = await prisma.projectWriting.update({
-      where: { id: writingId },
-      data: { content: nextContent },
+      where: { id: existing.id },
+      data: { content: nextContent as unknown as Prisma.InputJsonValue },
       select: {
         id: true,
         content: true,
@@ -469,8 +623,8 @@ export async function updateProjectWritingActivePageAction(
 }
 
 export async function updateProjectWritingPageContentAction(
-  projectId: string,
-  writingId: string,
+  projectRef: string,
+  writingRef: string,
   pageId: string,
   content: unknown
 ): Promise<ActionResult<{ id: string; content: unknown; updatedAt: Date }>> {
@@ -484,7 +638,16 @@ export async function updateProjectWritingPageContentAction(
   }
 
   try {
-    const existing = await getExistingWritingWithContent(projectId, writingId, userId);
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const existing = await getExistingWritingWithContent({
+      projectId,
+      writingRef,
+      userId,
+    });
 
     if (!existing) {
       return { success: false, error: "Writing file not found" };
@@ -496,8 +659,8 @@ export async function updateProjectWritingPageContentAction(
     }
 
     const writing = await prisma.projectWriting.update({
-      where: { id: writingId },
-      data: { content: nextContent },
+      where: { id: existing.id },
+      data: { content: nextContent as unknown as Prisma.InputJsonValue },
       select: {
         id: true,
         content: true,
@@ -513,8 +676,8 @@ export async function updateProjectWritingPageContentAction(
 }
 
 export async function deleteProjectWritingAction(
-  projectId: string,
-  writingId: string
+  projectRef: string,
+  writingRef: string
 ): Promise<ActionResult<{ id: string }>> {
   const userId = await getAuthUserId();
   if (!userId) {
@@ -522,16 +685,18 @@ export async function deleteProjectWritingAction(
   }
 
   try {
-    const existing = await prisma.projectWriting.findFirst({
-      where: {
-        id: writingId,
-        projectId,
-        userId,
-      },
-      select: { id: true },
+    const projectId = await resolveProjectIdByRef({ projectRef, userId });
+    if (!projectId) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const writingId = await resolveWritingIdByRef({
+      projectId,
+      userId,
+      writingRef,
     });
 
-    if (!existing) {
+    if (!writingId) {
       return { success: false, error: "Writing file not found" };
     }
 

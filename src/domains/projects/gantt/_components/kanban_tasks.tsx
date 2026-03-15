@@ -52,7 +52,7 @@ const columns: Column[] = [
 ];
 
 type KanbanTasksProps = {
-  projectId: string;
+  projectSlug: string;
   initialDomains: ProjectGanttDomainItem[];
   initialCategories: CategoryOption[];
 };
@@ -158,7 +158,7 @@ function byUpdatedAtDesc<T extends { updatedAt: Date | string }>(items: T[]) {
 }
 
 export default function KanbanTasks({
-  projectId,
+  projectSlug,
   initialDomains,
   initialCategories,
 }: KanbanTasksProps) {
@@ -239,7 +239,7 @@ export default function KanbanTasks({
 
     startTransition(async () => {
       const result = await createProjectGanttDomainAction(
-        projectId,
+        projectSlug,
         newDomainName,
         newDomainDescription
       );
@@ -270,7 +270,7 @@ export default function KanbanTasks({
 
     startTransition(async () => {
       const result = await updateProjectGanttDomainAction(
-        projectId,
+        projectSlug,
         domainId,
         editDomainName,
         editDomainDescription
@@ -302,7 +302,7 @@ export default function KanbanTasks({
 
     setError("");
     startTransition(async () => {
-      const result = await deleteProjectGanttDomainAction(projectId, deletingDomainId);
+      const result = await deleteProjectGanttDomainAction(projectSlug, deletingDomainId);
       if (!result.success) {
         setError(result.error);
         return;
@@ -344,7 +344,7 @@ export default function KanbanTasks({
     setError("");
     startTransition(async () => {
       const result = await createGanttTaskAction({
-        projectId,
+        projectRef: projectSlug,
         domainId: selectedDomain.id,
         name: trimmedName,
         description: trimmedDescription,
@@ -382,7 +382,7 @@ export default function KanbanTasks({
     setError("");
     startTransition(async () => {
       const result = await deleteGanttTaskAction({
-        projectId,
+        projectRef: projectSlug,
         domainId: selectedDomain.id,
         taskId: deletingTaskId,
       });
@@ -442,7 +442,7 @@ export default function KanbanTasks({
 
     startTransition(async () => {
       const result = await updateGanttTaskAction({
-        projectId,
+        projectRef: projectSlug,
         domainId: selectedDomain.id,
         taskId: editingTask.id,
         name: editingTask.name,
@@ -519,7 +519,7 @@ export default function KanbanTasks({
     const results = await Promise.all(
       changedTasks.map(async (task) =>
         updateGanttTaskAction({
-          projectId,
+          projectRef: projectSlug,
           domainId: selectedDomain.id,
           taskId: task.id,
           name: task.name,
@@ -900,7 +900,7 @@ export default function KanbanTasks({
                                 asChild
                               >
                                 <Link
-                                  href={`/my/project/${projectId}/tasks/open/${task.id}`}
+                                  href={`/my/project/${projectSlug}/tasks/open/${task.id}`}
                                   onPointerDown={(e) => e.stopPropagation()}
                                 >
                                   <FolderOpen className="size-3.5" />

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import KanbanTasks from "@/domains/projects/gantt/_components/kanban_tasks";
-import { getProjectById } from "@/domains/projects/project/db";
+import { getProjectBySlug } from "@/domains/projects/project/db";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export default async function ProjectTasksPage({
   params: Promise<{ projectid: string }>;
 }) {
   const { projectid } = await params;
-  const project = await getProjectById(projectid);
+  const project = await getProjectBySlug(projectid);
 
   if (!project) {
     notFound();
@@ -29,7 +29,7 @@ export default async function ProjectTasksPage({
           Manage domains and gantt tasks. Each domain has its own board.
         </p>
         <KanbanTasks
-          projectId={project.id}
+          projectSlug={project.slug}
           initialDomains={project.projectGantdomains}
           initialCategories={project.categories}
         />

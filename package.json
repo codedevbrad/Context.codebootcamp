@@ -16,6 +16,9 @@
     "db:reset": "prisma migrate reset --force",
     "db:reset:regen": "prisma migrate reset --force && prisma migrate dev",
     "db:backfill:project-files": "tsx prisma/scripts/project/project.files.backfill.ts",
+    "db:backfill:project-files-slug": "tsx prisma/scripts/project/project.files.slug.backfill.ts",
+    "db:backfill:project-slug": "tsx prisma/scripts/project/project.slug.backfill.ts",
+    "db:backfill:contexts-slug": "tsx prisma/scripts/project/project.contexts.slug.backfill.ts",
     "db:create": "psql -h localhost -p 5433 -U postgres -c \"CREATE DATABASE foodapp;\"",
     "db:drop": "psql -h localhost -p 5433 -U postgres -c \"DROP DATABASE foodapp;\"",
     "predeploy": "npm run rm:node_modules && npm install && npm run fullLint"

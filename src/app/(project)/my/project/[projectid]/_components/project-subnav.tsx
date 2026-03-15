@@ -5,25 +5,25 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type ProjectSubnavProps = {
-  projectId: string;
+  projectSlug: string;
 };
 
 const sections = [
-  { id: "overview", label: "Overview", href: (projectId: string) => `/my/project/${projectId}` },
-  { id: "files", label: "Files", href: (projectId: string) => `/my/project/${projectId}/files` },
-  { id: "contexts", label: "Contexts", href: (projectId: string) => `/my/project/${projectId}/contexts` },
-  { id: "tasks", label: "Tasks", href: (projectId: string) => `/my/project/${projectId}/tasks` },
-  { id: "erm", label: "ERM", href: (projectId: string) => `/my/project/${projectId}/erm` },
+  { id: "overview", label: "Overview", href: (projectSlug: string) => `/my/project/${projectSlug}` },
+  { id: "files", label: "Files", href: (projectSlug: string) => `/my/project/${projectSlug}/files` },
+  { id: "contexts", label: "Contexts", href: (projectSlug: string) => `/my/project/${projectSlug}/contexts` },
+  { id: "tasks", label: "Tasks", href: (projectSlug: string) => `/my/project/${projectSlug}/tasks` },
+  { id: "erm", label: "ERM", href: (projectSlug: string) => `/my/project/${projectSlug}/erm` },
 ];
 
-export default function ProjectSubnav({ projectId }: ProjectSubnavProps) {
+export default function ProjectSubnav({ projectSlug }: ProjectSubnavProps) {
   const pathname = usePathname();
-  const projectBase = `/my/project/${projectId}`;
+  const projectBase = `/my/project/${projectSlug}`;
 
   return (
     <nav className="flex items-center gap-2 border-b pb-3" aria-label="Project sections">
       {sections.map((section) => {
-        const href = section.href(projectId);
+        const href = section.href(projectSlug);
         const isActive =
           section.id === "overview"
             ? pathname === projectBase

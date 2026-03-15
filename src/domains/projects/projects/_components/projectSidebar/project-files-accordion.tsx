@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,7 @@ import { useProjectWritings } from "@/domains/projects/writing/_swr/useProjectWr
 import type { ProjectWritingListItem } from "@/domains/projects/writing/db";
 
 type ProjectFilesAccordionProps = {
-  projectId: string;
+  projectSlug: string;
   pathname: string;
 };
 
@@ -40,8 +40,8 @@ function toTimestamp(value: Date | string) {
 
 const FILES_PER_PAGE = 5;
 
-export function ProjectFilesAccordion({ projectId, pathname }: ProjectFilesAccordionProps) {
-  const { writings, isLoading, createWriting } = useProjectWritings(projectId);
+export function ProjectFilesAccordion({ projectSlug, pathname }: ProjectFilesAccordionProps) {
+  const { writings, isLoading, createWriting } = useProjectWritings(projectSlug);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState("");
@@ -59,12 +59,6 @@ export function ProjectFilesAccordion({ projectId, pathname }: ProjectFilesAccor
 
   const totalPages = Math.max(1, Math.ceil(sortedWritings.length / FILES_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
-
-  useEffect(() => {
-    if (page !== currentPage) {
-      setPage(currentPage);
-    }
-  }, [currentPage, page]);
 
   const visibleWritings = useMemo(() => {
     const start = (currentPage - 1) * FILES_PER_PAGE;
@@ -92,14 +86,14 @@ export function ProjectFilesAccordion({ projectId, pathname }: ProjectFilesAccor
       setNewTitle("");
       setIsCreateOpen(false);
       setPage(1);
-      router.push(`/my/project/${projectId}/files/${createdWriting.id}`);
+      router.push(`/my/project/${projectSlug}/files/${createdWriting.slug}`);
       router.refresh();
     });
   };
 
   return (
     <Accordion type="single" collapsible className="mt-2">
-      <AccordionItem value={`files-${projectId}`} className="border-none">
+      <AccordionItem value={`files-${projectSlug}`} className="border-none">
         <AccordionTrigger className="rounded px-2 py-1 text-xs text-muted-foreground hover:no-underline cursor-pointer hover:bg-gray-200">
           <span>Files [{sortedWritings.length}]</span>
         </AccordionTrigger>
@@ -116,7 +110,7 @@ export function ProjectFilesAccordion({ projectId, pathname }: ProjectFilesAccor
           ) : (
             <ul className="space-y-1 px-2 pb-1">
               {visibleWritings.map((writing) => {
-                const fileHref = `/my/project/${projectId}/files/${writing.id}`;
+                const fileHref = `/my/project/${projectSlug}/files/${writing.slug}`;
                 const isFileActive = pathname === fileHref;
 
                 return (
