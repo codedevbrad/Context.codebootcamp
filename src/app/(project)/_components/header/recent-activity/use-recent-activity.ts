@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   formatPathAsTitle,
   MAX_RECENT_ITEMS,
@@ -11,10 +11,17 @@ import {
 
 export function useRecentActivity(pathname: string | null) {
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>(() => readRecentActivityStorage())
+  const skipTrackPathRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const storedItems = readRecentActivityStorage()
     const currentPath = pathname || "/"
+    if (skipTrackPathRef.current === currentPath) {
+      skipTrackPathRef.current = null
+      setRecentActivity(readRecentActivityStorage())
+      return
+    }
+
+    const storedItems = readRecentActivityStorage()
     const currentItem: ActivityItem = {
       title: formatPathAsTitle(currentPath),
       path: currentPath,
@@ -28,10 +35,17 @@ export function useRecentActivity(pathname: string | null) {
 
     localStorage.setItem(RECENT_ACTIVITY_STORAGE_KEY, JSON.stringify(mergedItems))
 
-    queueMicrotask(() => {
-      setRecentActivity(mergedItems)
-    })
+    setRecentActivity(mergedItems)
   }, [pathname])
 
-  return recentActivity
+  const clearRecentActivity = () => {
+    skipTrackPathRef.current = pathname || "/"
+    localStorage.setItem(RECENT_ACTIVITY_STORAGE_KEY, JSON.stringify([]))
+    setRecentActivity([])
+  }
+
+  return {
+    recentActivity,
+    clearRecentActivity,
+  }
 }

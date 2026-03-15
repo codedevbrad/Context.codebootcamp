@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverAnchor,
@@ -12,25 +13,14 @@ import {
 import { Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ActivityItem } from "../recent-activity/recent-activity.utils"
-
-type QuickLink = {
-  label: string
-  href: string
-  keywords?: string[]
-}
-
-const quickLinks: QuickLink[] = [
-  { label: "Home", href: "/", keywords: ["dashboard"] },
-  { label: "About", href: "/my/about" },
-  { label: "Inspiration", href: "/my/inspiration", keywords: ["ideas"] },
-  { label: "My Projects", href: "/my", keywords: ["projects"] },
-]
+import { useHistoryRefresh } from "./use-history-refresh"
 
 type HeaderSearchProps = {
   recentActivity: ActivityItem[]
+  clearRecentActivity: () => void
 }
 
-export function HeaderSearch({ recentActivity }: HeaderSearchProps) {
+export function HeaderSearch({ recentActivity, clearRecentActivity }: HeaderSearchProps) {
   const router = useRouter()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
@@ -51,28 +41,7 @@ export function HeaderSearch({ recentActivity }: HeaderSearchProps) {
     }
   }, [])
 
-  const searchResults = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-
-    const recentLinks = recentActivity.map((item) => ({
-      label: item.title,
-      href: item.path,
-      type: "Recent" as const,
-      searchable: `${item.title} ${item.path}`.toLowerCase(),
-    }))
-
-    const quickItems = quickLinks.map((item) => ({
-      label: item.label,
-      href: item.href,
-      type: "Quick Link" as const,
-      searchable: `${item.label} ${item.href} ${(item.keywords || []).join(" ")}`.toLowerCase(),
-    }))
-
-    return [...recentLinks, ...quickItems]
-      .filter((item, index, arr) => arr.findIndex((candidate) => candidate.href === item.href) === index)
-      .filter((item) => (normalizedQuery ? item.searchable.includes(normalizedQuery) : true))
-      .slice(0, 8)
-  }, [query, recentActivity])
+  const searchResults = useHistoryRefresh(query, recentActivity)
 
   const goToSearchResult = (href: string) => {
     router.push(href)
@@ -112,8 +81,18 @@ export function HeaderSearch({ recentActivity }: HeaderSearchProps) {
         </div>
       </PopoverAnchor>
       <PopoverContent align="start" className="w-120 p-2">
-        <PopoverHeader className="px-1 py-1">
+        <PopoverHeader className="flex flex-row items-center justify-between px-1 py-1">
           <PopoverTitle>Quick Jump</PopoverTitle>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearRecentActivity}
+            disabled={recentActivity.length === 0}
+            className="h-7 px-2 text-xs"
+          >
+            Clear history
+          </Button>
         </PopoverHeader>
         <div className="space-y-1">
           {searchResults.length > 0 ? (
@@ -125,7 +104,16 @@ export function HeaderSearch({ recentActivity }: HeaderSearchProps) {
                 className="hover:bg-accent flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm"
               >
                 <span className="truncate pr-2">{result.label}</span>
-                <span className="text-muted-foreground shrink-0 text-xs">{result.type}</span>
+                <span className="ml-2 flex shrink-0 items-center gap-1">
+                  {result.pills.map((pill) => (
+                    <span
+                      key={`${result.href}-${pill}`}
+                      className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide"
+                    >
+                      {pill}
+                    </span>
+                  ))}
+                </span>
               </button>
             ))
           ) : (

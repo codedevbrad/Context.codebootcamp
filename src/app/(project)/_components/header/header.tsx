@@ -10,7 +10,7 @@ import { ZenSpaceButton } from "./zen-space-button"
 
 export function Header() {
   const pathname = usePathname()
-  const recentActivity = useRecentActivity(pathname)
+  const { recentActivity, clearRecentActivity } = useRecentActivity(pathname)
 
   return (
     <header className="sticky top-0 z-50 flex w-full justify-center border-b bg-background/95 px-5 backdrop-blur">
@@ -22,7 +22,7 @@ export function Header() {
         </div>
 
         <div className="hidden flex-1 md:flex">
-          <HeaderSearch recentActivity={recentActivity} />
+          <HeaderSearch recentActivity={recentActivity} clearRecentActivity={clearRecentActivity} />
         </div>
 
         <div className="flex flex-1 items-center justify-end space-x-2 md:flex-none">
